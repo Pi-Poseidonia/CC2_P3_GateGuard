@@ -1,0 +1,10 @@
+.vs/
+bin/GateGuard*.exe
+bin/GateGuard*.pdb
+obj/
+*.user
+*.suo
+*.ipch
+*.sdf
+.DS_Store
+Thumbs.db
