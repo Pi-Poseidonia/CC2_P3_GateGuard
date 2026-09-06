@@ -2,10 +2,10 @@
 #include "ofMain.h"
 #include <string>
 
-// Datenstruktur für ein erkanntes Nummernschild
+// datastructure to hold the information of a detected license plate
 struct LicensePlate {
-	ofImage croppedPlate; // Ausgeschnittener Bildbereich des Schildes
-	ofRectangle boundingBox; // Position und Größe im Ursprungsbild (X, Y, B, H)
-	std::string plateText; // Erkannter Text (z. B. "B-MW2026")
-	bool isValid = false; // Status, ob die Erkennung erfolgreich war
+	ofImage croppedPlate; // Cropped image of the license plate
+	ofRectangle boundingBox; // Position and size in the original image (X, Y, Width, Height)
+	std::string plateText; // Recognized text (e.g., "RJ1934KE4598")
+	bool isValid = false; // Status indicating whether the recognition was successful
 };
