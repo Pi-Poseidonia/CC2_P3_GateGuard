@@ -37,7 +37,10 @@
     <ClCompile Include="..\..\..\addons\ofxGui\src\ofxToggle.cpp">
       <Filter>addons\ofxGui\src</Filter>
     </ClCompile>
-    <ClCompile Include="IndianDetectionStrategy.cpp">
+    <ClCompile Include="src\EUDetectionStrategy.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\IndianDetectionStrategy.cpp">
       <Filter>src</Filter>
     </ClCompile>
   </ItemGroup>
@@ -98,10 +101,13 @@
     <ClInclude Include="LicensePlate.h">
       <Filter>src</Filter>
     </ClInclude>
-    <ClInclude Include="PlateDetectionStrategy.h">
+    <ClInclude Include="src\EUDetectionStrategy.h">
       <Filter>src</Filter>
     </ClInclude>
-    <ClInclude Include="IndianDetectionStrategy.h">
+    <ClInclude Include="src\IndianDetectionStrategy.h">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\PlateDetectionStrategy.h">
       <Filter>src</Filter>
     </ClInclude>
   </ItemGroup>

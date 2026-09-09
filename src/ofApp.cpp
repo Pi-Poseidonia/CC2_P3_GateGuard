@@ -9,6 +9,8 @@ void ofApp::setup() {
 	testImage.load("images/EU_DE.jpg");
 	testImage.setImageType(OF_IMAGE_COLOR); // force 3-channel RGB (no alpha)
 
+	if (testImage.isAllocated()) {
+
 	// --- DEBUG: generate the intermediate blue-strip mask for visualization ---
 	ofPixels mask = euStrategy.filterBlueStrip(testImage.getPixels());
 	debugMask.setFromPixels(mask);
@@ -26,6 +28,21 @@ void ofApp::setup() {
 	} else {
 		ofLogNotice("EUDetection") << "No plate detected in test image.";
 	}
+
+// --- Indian Plate Testing ---
+		indianResult = indianStrategy.detect(testImage.getPixels());
+
+		if (indianResult.isValid) {
+			ofLogNotice("IndianDetection") << "Indian HSRP Plate found at ("
+										   << indianResult.boundingBox.x << ", " << indianResult.boundingBox.y << ") size "
+										   << indianResult.boundingBox.width << "x" << indianResult.boundingBox.height;
+		} else {
+			ofLogNotice("IndianDetection") << "No Indian plate detected.";
+		}
+
+	} else {
+		ofLogError("ofApp") << "Could not load test image from bin/data/images/";
+	}
 }
 
 //--------------------------------------------------------------
@@ -41,40 +58,61 @@ void ofApp::draw() {
 	float margin = 15;
 	float availableWidth = ofGetWidth() - margin * 2;
 
-	// Panel 1: original image, scaled to fit window width
+	// original image & layout variables
 	float scale1 = availableWidth / testImage.getWidth();
 	float h1 = testImage.getHeight() * scale1;
 	testImage.draw(margin, margin, availableWidth, h1);
 
-	if (result.isValid) {
+	// --- 1. EU Bounding Box (for EU mode and both modes) ---
+	if ((currentMode == MODE_EU || currentMode == MODE_BOTH) && result.isValid) {
 		ofNoFill();
-		ofSetColor(255, 0, 0);
+		ofSetLineWidth(3);
+		ofSetColor(0, 100, 255); // blue EU
 		ofDrawRectangle(
 			margin + result.boundingBox.x * scale1,
 			margin + result.boundingBox.y * scale1,
 			result.boundingBox.width * scale1,
 			result.boundingBox.height * scale1);
+		ofDrawBitmapString("EU Plate", margin + result.boundingBox.x * scale1, margin + result.boundingBox.y * scale1 - 5);
 	}
+
+	// --- 2. Indian Bounding Box (for Indian mode and both modes) ---
+	if ((currentMode == MODE_INDIAN || currentMode == MODE_BOTH) && indianResult.isValid) {
+		ofNoFill();
+		ofSetLineWidth(3);
+		ofSetColor(0, 255, 0); // green for India
+		ofDrawRectangle(
+			margin + indianResult.boundingBox.x * scale1,
+			margin + indianResult.boundingBox.y * scale1,
+			indianResult.boundingBox.width * scale1,
+			indianResult.boundingBox.height * scale1);
+		ofDrawBitmapString("Indian HSRP", margin + indianResult.boundingBox.x * scale1, margin + indianResult.boundingBox.y * scale1 - 5);
+	}
+
 
 	float yCursor = margin + h1 + margin;
 
-	// Panel 2: debug mask, scaled to fit window width
-	ofSetColor(255);
-	float scale2 = availableWidth / debugMask.getWidth();
-	float h2 = debugMask.getHeight() * scale2;
-	debugMask.draw(margin, yCursor, availableWidth, h2);
-	yCursor += h2 + margin;
-
-	// Panel 3: cropped/binarized plate, scaled to fit window width
-	if (result.isValid) {
+	// --- 3. Show binarized plate per active mode---
+	if ((currentMode == MODE_INDIAN || currentMode == MODE_BOTH) && indianResult.isValid) {
+		ofSetColor(255);
+		float scale3 = availableWidth / indianResult.croppedPlate.getWidth();
+		float h3 = indianResult.croppedPlate.getHeight() * scale3;
+		indianResult.croppedPlate.draw(margin, yCursor, availableWidth, h3);
+		ofDrawBitmapStringHighlight("[Indian Engine Crop]", margin + 5, yCursor + 15);
+	} else if ((currentMode == MODE_EU || currentMode == MODE_BOTH) && result.isValid) {
 		ofSetColor(255);
 		float scale3 = availableWidth / result.croppedPlate.getWidth();
 		float h3 = result.croppedPlate.getHeight() * scale3;
 		result.croppedPlate.draw(margin, yCursor, availableWidth, h3);
+		ofDrawBitmapStringHighlight("[EU Engine Crop]", margin + 5, yCursor + 15);
 	} else {
 		ofSetColor(255, 0, 0);
-		ofDrawBitmapString("No plate detected", margin, yCursor + 20);
+		ofDrawBitmapString("No plate detected for current mode", margin, yCursor + 20);
 	}
+
+	// --- 4. Top Status Banner ---
+	std::string modeStr = (currentMode == MODE_EU) ? "EU" : (currentMode == MODE_INDIAN ? "INDIAN" : "BOTH");
+	ofDrawBitmapStringHighlight("Key 1: EU | Key 2: Indian | Key 3: Both  -->  Active Mode: " + modeStr, 20, 25);
 }
 
 //--------------------------------------------------------------
