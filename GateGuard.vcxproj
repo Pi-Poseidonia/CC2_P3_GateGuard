@@ -226,6 +226,7 @@
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="IndianDetectionStrategy.cpp" />
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\ofApp.cpp" />
     <ClCompile Include="..\..\..\addons\ofxGui\src\ofxBaseGui.cpp" />
@@ -240,6 +241,7 @@
     <ClCompile Include="..\..\..\addons\ofxGui\src\ofxToggle.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="IndianDetectionStrategy.h" />
     <ClInclude Include="PlateDetectionStrategy.h" />
     <ClInclude Include="LicensePlate.h" />
     <ClInclude Include="src\ofApp.h" />
