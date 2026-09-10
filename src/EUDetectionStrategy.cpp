@@ -1,4 +1,5 @@
 #include "EUDetectionStrategy.h"
+#include <vector>
 
 //Executes the three-stage computer vision detection pipeline for EU-standard license plates.
 //The raw input frame referenced directly via ofPixels.
@@ -44,11 +45,14 @@ LicensePlate EUDetectionStrategy::detect(const ofPixels & input) {
 //Filters blue pixels characteristic of the EU-strip (stars + country code) on the plate's left edge.
 //Applies a hue/dominance threshold: blue channel must clearly dominate red and green.
 //
-// NOTE: the search is restricted to the left ~25% of the image width. An EU strip is always
-// positioned at the plate's left edge, so this is a structural assumption (not just noise
-// suppression) that also rejects stray false-positive pixels elsewhere in the frame - e.g.
-// JPEG compression artifacts or antialiasing around dark text on a real photo, which can
-// otherwise register as "blue-ish" and wreck the bounding box in phase 2.
+// NOTE: earlier versions of this method restricted the search to the left ~25% of the
+// image width. That assumption only held when the whole input photo was already just
+// the plate - it broke on full-scene photos (e.g. a car's rear view) where the plate
+// itself sits somewhere within a much wider frame, not necessarily near the image's own
+// left edge; restricting the search there would miss the plate entirely. Non-strip blue
+// false-positives are instead rejected downstream via connected-component analysis in
+// findPlateBoundingBox (keeping only the largest contiguous blob) plus its aspect-ratio
+// and minimum-size checks, none of which depend on the plate's position in the frame.
 
 ofPixels EUDetectionStrategy::filterBlueStrip(const ofPixels & input) {
 	ofPixels output;
@@ -64,18 +68,9 @@ ofPixels EUDetectionStrategy::filterBlueStrip(const ofPixels & input) {
 		return input;
 	}
 
-	// The EU strip never extends past roughly a quarter of the plate's width.
-	int maxSearchX = static_cast<int>(width * 0.25f);
-
 	// 1. Nested For-loop: Iterate over each pixel in the input image
 	for (int y = 0; y < height; y++) {
 		for (int x = 0; x < width; x++) {
-
-			// Skip pixels outside the strip's expected region entirely
-			if (x > maxSearchX) {
-				output[y * width + x] = 0;
-				continue;
-			}
 
 			// Calculate memory index for RGB/RGBA buffer
 			int index = (y * width + x) * numChannels;
@@ -105,37 +100,98 @@ ofPixels EUDetectionStrategy::filterBlueStrip(const ofPixels & input) {
 //The blue strip only spans a narrow column at the plate's left edge (~1/12 of total plate width),
 //but shares the same height as the full plate, so the strip's bounding box lets us extrapolate
 //the complete plate rectangle using the standard EU plate aspect ratio (~4.7:1).
+//
+// Uses connected-component analysis (flood fill) rather than a single global min/max scan
+// across the whole mask. A naive global scan treats every blue-flagged pixel in the entire
+// frame as part of one shape, so even a single stray pixel far from the real strip (e.g.
+// chrome/embossing glare elsewhere on the plate) balloons the bounding box and fails the
+// aspect-ratio check below. Finding each contiguous blob separately and keeping only the
+// largest one (by pixel count) is robust to scattered noise regardless of where it or the
+// real strip happen to sit in the frame - unlike a fixed-position search cutoff, which only
+// works when the plate is known to be at a specific spot in the image.
 
 ofRectangle EUDetectionStrategy::findPlateBoundingBox(const ofPixels & thresholdedImage) {
 	int width = thresholdedImage.getWidth();
 	int height = thresholdedImage.getHeight();
 
-	int minX = width;
-	int minY = height;
-	int maxX = 0;
-	int maxY = 0;
+	std::vector<bool> visited(width * height, false);
+
+	int bestMinX = 0, bestMinY = 0, bestMaxX = 0, bestMaxY = 0;
+	int bestPixelCount = 0;
 	bool foundAny = false;
 
-	// Scan binary mask to find extreme coordinates of active (blue-strip) pixels
-	for (int y = 0; y < height; y++) {
-		for (int x = 0; x < width; x++) {
-			if (thresholdedImage[y * width + x] == 255) {
-				if (x < minX) minX = x;
-				if (x > maxX) maxX = x;
-				if (y < minY) minY = y;
-				if (y > maxY) maxY = y;
+	// Flood-fill (4-connectivity) every unvisited "on" pixel to find each contiguous blob.
+	for (int startY = 0; startY < height; startY++) {
+		for (int startX = 0; startX < width; startX++) {
+			int startIndex = startY * width + startX;
+
+			if (visited[startIndex] || thresholdedImage[startIndex] != 255) {
+				continue;
+			}
+
+			// BFS this blob using an explicit stack (avoids recursion depth issues on large blobs)
+			std::vector<ofPoint> stack;
+			stack.push_back(ofPoint(startX, startY));
+			visited[startIndex] = true;
+
+			int minX = startX, minY = startY, maxX = startX, maxY = startY;
+			int pixelCount = 0;
+
+			while (!stack.empty()) {
+				ofPoint p = stack.back();
+				stack.pop_back();
+
+				int px = static_cast<int>(p.x);
+				int py = static_cast<int>(p.y);
+				pixelCount++;
+
+				if (px < minX) minX = px;
+				if (px > maxX) maxX = px;
+				if (py < minY) minY = py;
+				if (py > maxY) maxY = py;
+
+				// 4-connected neighbors
+				const int dx[4] = { -1, 1, 0, 0 };
+				const int dy[4] = { 0, 0, -1, 1 };
+
+				for (int dir = 0; dir < 4; dir++) {
+					int nx = px + dx[dir];
+					int ny = py + dy[dir];
+
+					if (nx < 0 || nx >= width || ny < 0 || ny >= height) {
+						continue;
+					}
+
+					int nIndex = ny * width + nx;
+					if (!visited[nIndex] && thresholdedImage[nIndex] == 255) {
+						visited[nIndex] = true;
+						stack.push_back(ofPoint(nx, ny));
+					}
+				}
+			}
+
+			// Keep only the largest blob found so far - the real strip is a solid
+			// contiguous region, while noise is scattered into small, separate blobs.
+			if (pixelCount > bestPixelCount) {
+				bestPixelCount = pixelCount;
+				bestMinX = minX;
+				bestMinY = minY;
+				bestMaxX = maxX;
+				bestMaxY = maxY;
 				foundAny = true;
 			}
 		}
 	}
 
-	// Return empty rectangle if no candidate pixels were found
+	// Return empty rectangle if no candidate blob was found
 	if (!foundAny) {
 		return ofRectangle(0, 0, 0, 0);
 	}
 
-	int stripWidth = maxX - minX;
-	int stripHeight = maxY - minY;
+	int stripWidth = bestMaxX - bestMinX;
+	int stripHeight = bestMaxY - bestMinY;
+	int minX = bestMinX;
+	int minY = bestMinY;
 
 	// 1. Minimum Size Check: Reject tiny noise artifacts
 	if (stripWidth < 3 || stripHeight < 8) {

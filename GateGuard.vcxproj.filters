@@ -37,12 +37,17 @@
     <ClCompile Include="..\..\..\addons\ofxGui\src\ofxToggle.cpp">
       <Filter>addons\ofxGui\src</Filter>
     </ClCompile>
+
     <ClCompile Include="src\EUDetectionStrategy.cpp">
       <Filter>src</Filter>
     </ClCompile>
     <ClCompile Include="src\IndianDetectionStrategy.cpp">
       <Filter>src</Filter>
     </ClCompile>
+
+    <ClCompile Include="src\EUDetectionStrategy.cpp" />
+    <ClCompile Include="src\Platedetector.cpp" />
+
   </ItemGroup>
   <ItemGroup>
     <Filter Include="src">
@@ -98,6 +103,7 @@
     <ClInclude Include="..\..\..\addons\ofxGui\src\ofxToggle.h">
       <Filter>addons\ofxGui\src</Filter>
     </ClInclude>
+
     <ClInclude Include="LicensePlate.h">
       <Filter>src</Filter>
     </ClInclude>
@@ -110,8 +116,31 @@
     <ClInclude Include="src\PlateDetectionStrategy.h">
       <Filter>src</Filter>
     </ClInclude>
+
+    <ClInclude Include="src\EUDetectionStrategy.h" />
+    <ClInclude Include="PlateDetectionStrategy.h" />
+    <ClInclude Include="LicensePlate.h" />
+    <ClInclude Include="src\Platedetector.h" />
+
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="icon.rc" />
   </ItemGroup>
+
+  <ItemGroup>
+    <Image Include="bin\data\images\EU_DE.jpg" />
+    <Image Include="bin\data\images\I_HR26.jpg" />
+    <Image Include="bin\data\images\EU_DE1.jpg" />
+    <Image Include="bin\data\images\EU-DE2.jpg" />
+    <Image Include="bin\data\images\EU-DE3.jpg" />
+    <Image Include="bin\data\images\I_MH74.jpg" />
+    <Image Include="bin\data\images\I_RJ14.jpg" />
+    <Image Include="bin\data\images\I_RJ19.jpg" />
+    <Image Include="bin\data\images\I_TN87.jpg" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="config.make" />
+    <None Include="README.md" />
+  </ItemGroup>
+
 </Project>

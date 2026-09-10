@@ -82,11 +82,11 @@
       <PreprocessorDefinitions>%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
       <WarningLevel>Level3</WarningLevel>
-      <AdditionalIncludeDirectories>%(AdditionalIncludeDirectories);..\..\..\addons\ofxGui\src;src</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>%(AdditionalIncludeDirectories);..\..\..\addons\ofxGui\src;src;$(ProjectDir)</AdditionalIncludeDirectories>
       <CompileAs>CompileAsCpp</CompileAs>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <ObjectFileName>$(IntDir)\Build\%(RelativeDir)\$(Configuration)\</ObjectFileName>
-      <LanguageStandard>stdcpplatest</LanguageStandard>
+      <LanguageStandard>stdcpp17</LanguageStandard>
       <AdditionalOptions>/Zc:__cplusplus %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <PostBuildEvent />
@@ -127,10 +127,10 @@
       <PreprocessorDefinitions>%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
       <WarningLevel>Level3</WarningLevel>
-      <AdditionalIncludeDirectories>%(AdditionalIncludeDirectories);..\..\..\addons\ofxGui\src;src</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>%(AdditionalIncludeDirectories);..\..\..\addons\ofxGui\src;src;$(ProjectDir)</AdditionalIncludeDirectories>
       <CompileAs>CompileAsCpp</CompileAs>
       <ObjectFileName>$(IntDir)\Build\%(RelativeDir)\$(Configuration)\</ObjectFileName>
-      <LanguageStandard>stdcpplatest</LanguageStandard>
+      <LanguageStandard>stdcpp17</LanguageStandard>
       <AdditionalOptions>/Zc:__cplusplus %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <PostBuildEvent />
@@ -176,16 +176,12 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Platform)'=='x64'">
     <PostBuildEvent>
-      <Command>
-            xcopy /Y /E "$(ProjectDir)dll\x64\*.dll" "$(TargetDir)"
-        </Command>
+      <Command>if exist "$(ProjectDir)dll\x64\*.dll" xcopy /Y /E "$(ProjectDir)dll\x64\*.dll" "$(TargetDir)"</Command>
     </PostBuildEvent>
     <ClCompile>
       <LanguageStandard_C Condition="'$(Configuration)|$(Platform)'=='Release|x64'">stdc17</LanguageStandard_C>
       <BuildStlModules Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</BuildStlModules>
       <DebugInformationFormat Condition="'$(Configuration)|$(Platform)'=='Release|x64'">OldStyle</DebugInformationFormat>
-    </ClCompile>
-    <ClCompile>
       <LanguageStandard_C Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">stdc17</LanguageStandard_C>
       <BuildStlModules Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</BuildStlModules>
       <DebugInformationFormat Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">OldStyle</DebugInformationFormat>
@@ -193,16 +189,12 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Platform)'=='ARM64'">
     <PostBuildEvent>
-      <Command>
-            xcopy /Y /E "$(ProjectDir)dll\ARM64\*.dll" "$(TargetDir)"
-        </Command>
+      <Command>if exist "$(ProjectDir)dll\ARM64\*.dll" xcopy /Y /E "$(ProjectDir)dll\ARM64\*.dll" "$(TargetDir)"</Command>
     </PostBuildEvent>
     <ClCompile>
       <LanguageStandard_C Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">stdc17</LanguageStandard_C>
       <BuildStlModules Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">true</BuildStlModules>
       <DebugInformationFormat Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">OldStyle</DebugInformationFormat>
-    </ClCompile>
-    <ClCompile>
       <LanguageStandard_C Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">stdc17</LanguageStandard_C>
       <BuildStlModules Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">true</BuildStlModules>
       <DebugInformationFormat Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">OldStyle</DebugInformationFormat>
@@ -210,16 +202,12 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Platform)'=='ARM64EC'">
     <PostBuildEvent>
-      <Command>
-            xcopy /Y /E "$(ProjectDir)dll\ARM64EC\*.dll" "$(TargetDir)"
-        </Command>
+      <Command>if exist "$(ProjectDir)dll\ARM64EC\*.dll" xcopy /Y /E "$(ProjectDir)dll\ARM64EC\*.dll" "$(TargetDir)"</Command>
     </PostBuildEvent>
     <ClCompile>
       <LanguageStandard_C Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64EC'">stdc17</LanguageStandard_C>
       <BuildStlModules Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64EC'">true</BuildStlModules>
       <DebugInformationFormat Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64EC'">OldStyle</DebugInformationFormat>
-    </ClCompile>
-    <ClCompile>
       <LanguageStandard_C Condition="'$(Configuration)|$(Platform)'=='Release|ARM64EC'">stdc17</LanguageStandard_C>
       <BuildStlModules Condition="'$(Configuration)|$(Platform)'=='Release|ARM64EC'">true</BuildStlModules>
       <DebugInformationFormat Condition="'$(Configuration)|$(Platform)'=='Release|ARM64EC'">OldStyle</DebugInformationFormat>
@@ -230,6 +218,7 @@
     <ClCompile Include="src\IndianDetectionStrategy.cpp" />
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\ofApp.cpp" />
+    <ClCompile Include="src\Platedetector.cpp" />
     <ClCompile Include="..\..\..\addons\ofxGui\src\ofxBaseGui.cpp" />
     <ClCompile Include="..\..\..\addons\ofxGui\src\ofxButton.cpp" />
     <ClCompile Include="..\..\..\addons\ofxGui\src\ofxColorPicker.cpp" />
@@ -242,10 +231,12 @@
     <ClCompile Include="..\..\..\addons\ofxGui\src\ofxToggle.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="LicensePlate.h" />
     <ClInclude Include="src\EUDetectionStrategy.h" />
     <ClInclude Include="src\IndianDetectionStrategy.h" />
+    <ClInclude Include="src\LicensePlate.h" />
     <ClInclude Include="src\ofApp.h" />
+    <ClInclude Include="src\PlateDetectionStrategy.h" />
+    <ClInclude Include="src\Platedetector.h" />
     <ClInclude Include="..\..\..\addons\ofxGui\src\ofxBaseGui.h" />
     <ClInclude Include="..\..\..\addons\ofxGui\src\ofxButton.h" />
     <ClInclude Include="..\..\..\addons\ofxGui\src\ofxColorPicker.h" />
@@ -258,7 +249,6 @@
     <ClInclude Include="..\..\..\addons\ofxGui\src\ofxSlider.h" />
     <ClInclude Include="..\..\..\addons\ofxGui\src\ofxSliderGroup.h" />
     <ClInclude Include="..\..\..\addons\ofxGui\src\ofxToggle.h" />
-    <ClInclude Include="src\PlateDetectionStrategy.h" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="$(OF_ROOT)\libs\openFrameworksCompiled\project\vs\openframeworksLib.vcxproj">
@@ -270,6 +260,21 @@
       <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Debug|x64' or '$(Configuration)|$(Platform)'=='Debug|ARM64' or '$(Configuration)|$(Platform)'=='Debug|ARM64EC'">/D_DEBUG %(AdditionalOptions)</AdditionalOptions>
       <AdditionalIncludeDirectories>$(OF_ROOT)\libs\openFrameworksCompiled\project\vs</AdditionalIncludeDirectories>
     </ResourceCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="bin\data\images\EU-DE2.jpg" />
+    <Image Include="bin\data\images\EU-DE3.jpg" />
+    <Image Include="bin\data\images\EU_DE.jpg" />
+    <Image Include="bin\data\images\EU_DE1.jpg" />
+    <Image Include="bin\data\images\I_HR26.jpg" />
+    <Image Include="bin\data\images\I_MH74.jpg" />
+    <Image Include="bin\data\images\I_RJ14.jpg" />
+    <Image Include="bin\data\images\I_RJ19.jpg" />
+    <Image Include="bin\data\images\I_TN87.jpg" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="config.make" />
+    <None Include="README.md" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ProjectExtensions>
