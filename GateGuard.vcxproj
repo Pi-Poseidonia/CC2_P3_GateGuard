@@ -240,6 +240,7 @@
     <ClCompile Include="..\..\..\addons\ofxGui\src\ofxSliderGroup.cpp" />
     <ClCompile Include="..\..\..\addons\ofxGui\src\ofxToggle.cpp" />
     <ClCompile Include="src\Platedetector.cpp" />
+    <ClCompile Include="src\Tesseractplatereader.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="LicensePlate.h" />
@@ -259,6 +260,7 @@
     <ClInclude Include="..\..\..\addons\ofxGui\src\ofxSliderGroup.h" />
     <ClInclude Include="..\..\..\addons\ofxGui\src\ofxToggle.h" />
     <ClInclude Include="src\Platedetector.h" />
+    <ClInclude Include="src\Tesseractplatereader.h" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="$(OF_ROOT)\libs\openFrameworksCompiled\project\vs\openframeworksLib.vcxproj">
@@ -283,6 +285,7 @@
     <Image Include="bin\data\images\I_TN87.jpg" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="bin\tessdata\eng.traineddata" />
     <None Include="config.make" />
     <None Include="README.md" />
   </ItemGroup>

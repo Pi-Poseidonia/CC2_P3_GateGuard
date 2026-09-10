@@ -39,6 +39,7 @@
     </ClCompile>
     <ClCompile Include="src\EUDetectionStrategy.cpp" />
     <ClCompile Include="src\Platedetector.cpp" />
+    <ClCompile Include="src\Tesseractplatereader.cpp" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="src">
@@ -98,6 +99,7 @@
     <ClInclude Include="PlateDetectionStrategy.h" />
     <ClInclude Include="LicensePlate.h" />
     <ClInclude Include="src\Platedetector.h" />
+    <ClInclude Include="src\Tesseractplatereader.h" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="icon.rc" />
@@ -116,5 +118,6 @@
   <ItemGroup>
     <None Include="config.make" />
     <None Include="README.md" />
+    <None Include="bin\tessdata\eng.traineddata" />
   </ItemGroup>
 </Project>

@@ -21,8 +21,10 @@ public:
 
 private:
 	// support method for phase 2 of the pipeline: derive full plate bounding box
-	// from the blue strip's position (the strip only covers the left portion of the plate)
-	ofRectangle findPlateBoundingBox(const ofPixels & thresholdedImage);
+	// from the blue strip's position (the strip only covers the left portion of the plate).
+	// outStripWidth receives the strip's own detected width (px), so a caller can trim
+	// it out of the resulting crop before running external OCR on the plate.
+	ofRectangle findPlateBoundingBox(const ofPixels & thresholdedImage, int & outStripWidth);
 
 	// support method for phase 3 of the pipeline: binarize the cropped ROI for OCR
 	ofPixels binarizeROI(const ofPixels & croppedROI);
