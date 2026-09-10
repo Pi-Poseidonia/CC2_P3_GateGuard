@@ -3,29 +3,38 @@
 //--------------------------------------------------------------
 void ofApp::setup() {
 
-	ofSetWindowTitle("EU Plate Detection - Debug View");
+	ofSetWindowTitle("PlateDetector - EU Testing (multiple images)");
 
-	// Point this at your EU plate test image in bin/data/images/
-	testImage.load("images/EU_DE.jpg");
-	testImage.setImageType(OF_IMAGE_COLOR); // force 3-channel RGB (no alpha)
+	// --- Load character templates once, shared across all test images ---
+	euDetector.loadTemplates("alphabet/");
 
-	// --- DEBUG: generate the intermediate blue-strip mask for visualization ---
-	ofPixels mask = euStrategy.filterBlueStrip(testImage.getPixels());
-	debugMask.setFromPixels(mask);
+	// --- Load and process every test image up front ---
+	euImages.resize(testImageFilenames.size());
+	euResults.resize(testImageFilenames.size());
 
-	result = euStrategy.detect(testImage.getPixels());
+	for (size_t i = 0; i < testImageFilenames.size(); i++) {
+		ofImage & img = euImages[i];
 
-	if (result.isValid) {
-		ofLogNotice("EUDetection") << "Plate found at ("
-								   << result.boundingBox.x << ", " << result.boundingBox.y << ") size "
-								   << result.boundingBox.width << "x" << result.boundingBox.height;
+		if (img.load(testImageFilenames[i])) {
+			img.setImageType(OF_IMAGE_COLOR);
 
-		// --- DEBUG: confirm the actual pixel dimensions stored in the ofImage itself ---
-		ofLogNotice("EUDetection") << "croppedPlate ofImage actual size: "
-								   << result.croppedPlate.getWidth() << "x" << result.croppedPlate.getHeight();
-	} else {
-		ofLogNotice("EUDetection") << "No plate detected in test image.";
+			euResults[i] = euDetector.process(img.getPixels());
+
+			if (euResults[i].isValid) {
+				ofLogNotice("EUDetection") << "[" << testImageFilenames[i] << "] Plate found at ("
+										   << euResults[i].boundingBox.x << ", " << euResults[i].boundingBox.y << ") size "
+										   << euResults[i].boundingBox.width << "x" << euResults[i].boundingBox.height
+										   << " text=\"" << euResults[i].plateText << "\"";
+			} else {
+				ofLogNotice("EUDetection") << "[" << testImageFilenames[i] << "] No plate detected.";
+			}
+		} else {
+			ofLogError("ofApp") << "Could not load test image: " << testImageFilenames[i];
+		}
 	}
+
+	ofLogNotice("ofApp") << "Loaded " << testImageFilenames.size() << " test image(s). "
+						 << "Use LEFT/RIGHT arrow keys to switch between them.";
 }
 
 //--------------------------------------------------------------
@@ -35,50 +44,74 @@ void ofApp::update() {
 //--------------------------------------------------------------
 void ofApp::draw() {
 	ofBackground(30);
-	ofSetColor(255); // reset color state every frame - prevents red tint bleeding across draws
+	ofSetColor(255);
 
-	// --- Layout: scale every panel to fit inside the window, stacked with labels ---
+	if (euImages.empty()) {
+		ofDrawBitmapStringHighlight("No test images loaded.", 20, 30);
+		return;
+	}
+
 	float margin = 15;
 	float availableWidth = ofGetWidth() - margin * 2;
+	float yCursor = margin;
 
-	// Panel 1: original image, scaled to fit window width
-	float scale1 = availableWidth / testImage.getWidth();
-	float h1 = testImage.getHeight() * scale1;
-	testImage.draw(margin, margin, availableWidth, h1);
+	std::string header = "Image " + ofToString(currentIndex + 1) + " / " + ofToString(euImages.size())
+		+ "   (" + testImageFilenames[currentIndex] + ")   [<- / -> to switch]";
+	ofDrawBitmapStringHighlight(header, margin, yCursor + 10);
+	yCursor += 25;
+
+	ofImage & img = euImages[currentIndex];
+	LicensePlate & result = euResults[currentIndex];
+
+	if (!img.isAllocated()) {
+		ofSetColor(255, 0, 0);
+		ofDrawBitmapString("Failed to load this image - check the filename/path.", margin, yCursor + 20);
+		return;
+	}
+
+	ofSetColor(255);
+	float scale = availableWidth / img.getWidth();
+	float h = img.getHeight() * scale;
+	img.draw(margin, yCursor, availableWidth, h);
 
 	if (result.isValid) {
 		ofNoFill();
-		ofSetColor(255, 0, 0);
+		ofSetLineWidth(3);
+		ofSetColor(0, 100, 255);
 		ofDrawRectangle(
-			margin + result.boundingBox.x * scale1,
-			margin + result.boundingBox.y * scale1,
-			result.boundingBox.width * scale1,
-			result.boundingBox.height * scale1);
+			margin + result.boundingBox.x * scale,
+			yCursor + result.boundingBox.y * scale,
+			result.boundingBox.width * scale,
+			result.boundingBox.height * scale);
 	}
+	yCursor += h + margin;
 
-	float yCursor = margin + h1 + margin;
-
-	// Panel 2: debug mask, scaled to fit window width
-	ofSetColor(255);
-	float scale2 = availableWidth / debugMask.getWidth();
-	float h2 = debugMask.getHeight() * scale2;
-	debugMask.draw(margin, yCursor, availableWidth, h2);
-	yCursor += h2 + margin;
-
-	// Panel 3: cropped/binarized plate, scaled to fit window width
 	if (result.isValid) {
 		ofSetColor(255);
-		float scale3 = availableWidth / result.croppedPlate.getWidth();
-		float h3 = result.croppedPlate.getHeight() * scale3;
-		result.croppedPlate.draw(margin, yCursor, availableWidth, h3);
+		float cropScale = availableWidth / result.croppedPlate.getWidth();
+		float cropH = result.croppedPlate.getHeight() * cropScale;
+		result.croppedPlate.draw(margin, yCursor, availableWidth, cropH);
+		yCursor += cropH + margin;
+
+		ofSetColor(0, 255, 0);
+		ofDrawBitmapStringHighlight("Text: " + result.plateText, margin, yCursor + 10);
 	} else {
 		ofSetColor(255, 0, 0);
-		ofDrawBitmapString("No plate detected", margin, yCursor + 20);
+		ofDrawBitmapString("No plate detected in this image", margin, yCursor + 20);
 	}
 }
 
 //--------------------------------------------------------------
 void ofApp::keyPressed(int key) {
+	if (euImages.empty()) {
+		return;
+	}
+
+	if (key == OF_KEY_RIGHT) {
+		currentIndex = (currentIndex + 1) % euImages.size();
+	} else if (key == OF_KEY_LEFT) {
+		currentIndex = (currentIndex - 1 + euImages.size()) % euImages.size();
+	}
 }
 
 //--------------------------------------------------------------
