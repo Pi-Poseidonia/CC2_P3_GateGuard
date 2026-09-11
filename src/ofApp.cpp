@@ -130,66 +130,69 @@ ofSetWindowTitle("PlateDetector - Multi-Region Testing (EU & India)");
 	// --- Load and process every test image up front ---
 	euImages.resize(testImageFilenames.size());
 	euResults.resize(testImageFilenames.size());
+	indianResults.resize(testImageFilenames.size()); // NEU: Speicher für Indische Ergebnisse reservieren
 	tesseractResults.resize(testImageFilenames.size());
 	accessDecisions.resize(testImageFilenames.size());
 
-	// --- 3. Load and process every test image for both regions ---
 	for (size_t i = 0; i < testImageFilenames.size(); i++) {
 		ofImage & img = euImages[i];
 
-		if (img.load(testImageFilenames[i])) {
+		// Ensure the image loads properly and is allocated in memory
+		if (img.load(testImageFilenames[i]) && img.isAllocated()) {
 			img.setImageType(OF_IMAGE_COLOR);
 
-			// Run EU detection & OCR
+			// 1. Run EU detection strategy
 			detector.setStrategy(euStrategy);
 			euResults[i] = detector.process(img.getPixels());
 
-			if (euResults[i].isValid) {
-				ofLogNotice("EUDetection") << "[" << testImageFilenames[i] << "] Plate found at ("
-										   << euResults[i].boundingBox.x << ", " << euResults[i].boundingBox.y << ") size "
-										   << euResults[i].boundingBox.width << "x" << euResults[i].boundingBox.height
-										   << " customText=\"" << euResults[i].plateText << "\"";
+			// 2. Run Indian detection strategy
+			detector.setStrategy(indianStrategy);
+			indianResults[i] = detector.process(img.getPixels());
 
-				// Run Tesseract on the detected plate crop, with the EU strip trimmed off
-				// the left edge first - otherwise the strip's stars/seal artwork can get
-				// misread as stray characters, since Tesseract has no notion of "this
-				// region is a color strip, not text." A small extra margin (+15%) is
-				// added past the strip's raw detected width, since a too-tight trim risks
-				// clipping into the first real character if the strip's edge was measured
-				// even slightly wide.
-				if (tesseractReady) {
-					ofPixels platePixels = euResults[i].croppedPlate.getPixels();
-					int trimAmount = static_cast<int>(euResults[i].stripWidthPx * 1.15f);
-					trimAmount = std::min(trimAmount, static_cast<int>(platePixels.getWidth()) - 1);
+			// 3. Select active plate (Indian takes priority if valid, otherwise EU)
+			LicensePlate & activePlate = indianResults[i].isValid ? indianResults[i] : euResults[i];
+
+			if (activePlate.isValid) {
+				ofLogNotice("Detection") << "[" << testImageFilenames[i] << "] Plate found at ("
+										 << activePlate.boundingBox.x << ", " << activePlate.boundingBox.y << ") size "
+										 << activePlate.boundingBox.width << "x" << activePlate.boundingBox.height
+										 << " customText=\"" << activePlate.plateText << "\"";
+
+				// Ensure Tesseract is ready and the cropped plate is valid
+				if (tesseractReady && activePlate.croppedPlate.isAllocated() && activePlate.croppedPlate.getWidth() > 0) {
+					// .getPixels() is required if croppedPlate is an ofImage
+					ofPixels platePixels = activePlate.croppedPlate.getPixels();
+
+					int imgWidth = platePixels.getWidth();
+					int imgHeight = platePixels.getHeight();
+
+					// Trim side strips safely (0 for Indian plates since stripWidthPx is 0)
+					int trimAmount = std::max(0, static_cast<int>(activePlate.stripWidthPx * 1.15f));
+					trimAmount = std::min(trimAmount, imgWidth - 1);
 
 					ofPixels forOcr;
-					if (trimAmount > 0) {
-						platePixels.cropTo(forOcr, trimAmount, 0,
-							platePixels.getWidth() - trimAmount, platePixels.getHeight());
+					if (trimAmount > 0 && (imgWidth - trimAmount) > 0) {
+						platePixels.cropTo(forOcr, trimAmount, 0, imgWidth - trimAmount, imgHeight);
 					} else {
-						forOcr = platePixels; // no strip detected for this strategy/image - use as-is
+						forOcr = platePixels;
 					}
 
-					// First, drop a trailing stray blob (border/frame fragment) if one is
-					// isolated and much narrower than a real character would be...
-					forOcr = trimStrayEdgeBlob(forOcr);
-					// ...then tightly crop to whatever ink remains, so there's no
-					// leftover blank margin either.
-					forOcr = tightCropToInkWithPadding(forOcr, 5);
+					if (forOcr.isAllocated() && forOcr.getWidth() > 0) {
+						forOcr = trimStrayEdgeBlob(forOcr);
+						forOcr = tightCropToInkWithPadding(forOcr, 5);
 
-					tesseractResults[i] = tesseractReader.recognize(forOcr);
-					ofLogNotice("Tesseract") << "[" << testImageFilenames[i] << "] (trimmed " << trimAmount
-											 << "px strip) tesseractText=\"" << tesseractResults[i] << "\"";
+						tesseractResults[i] = tesseractReader.recognize(forOcr);
+						ofLogNotice("Tesseract") << "[" << testImageFilenames[i] << "] tesseractText=\"" << tesseractResults[i] << "\"";
 
-					// --- Phase 3: evaluate this OCR result against the authorized list,
-					// and record the decision in the access log ---
-					if (accessListReady) {
-						accessDecisions[i] = accessController.evaluate(tesseractResults[i]);
-						accessLog.record(accessDecisions[i]);
+						// Phase 3: Evaluate against authorized list
+						if (accessListReady) {
+							accessDecisions[i] = accessController.evaluate(tesseractResults[i]);
+							accessLog.record(accessDecisions[i]);
+						}
 					}
 				}
 			} else {
-				ofLogNotice("EUDetection") << "[" << testImageFilenames[i] << "] No plate detected.";
+				ofLogNotice("Detection") << "[" << testImageFilenames[i] << "] No plate detected.";
 			}
 		} else {
 			ofLogError("ofApp") << "Could not load test image: " << testImageFilenames[i];
@@ -206,8 +209,6 @@ ofSetWindowTitle("PlateDetector - Multi-Region Testing (EU & India)");
 	ofLogNotice("ofApp") << "Loaded " << testImageFilenames.size() << " test image(s). "
 						 << "Use LEFT/RIGHT arrow keys to switch between them.";
 
-	//load user data base
-	accessManager.loadDatabase("users.csv");
 }
 
 
@@ -242,7 +243,7 @@ void ofApp::draw() {
 	// Get image and detection results (using indianResult single instance from ofApp.h)
 	ofImage & img = euImages[currentIndex];
 	LicensePlate & euRes = euResults[currentIndex];
-	LicensePlate & inRes = indianResult;
+	LicensePlate & inRes = indianResults[currentIndex];
 
 	if (!img.isAllocated()) {
 		ofSetColor(255, 0, 0);
@@ -307,16 +308,17 @@ void ofApp::draw() {
 			} else {
 				ofSetColor(255, 60, 60);
 				std::string reason = decision.matchedPlate.empty()
-					? "no close match found"
+					? "no cloBse match found"
 					: "closest was \"" + decision.matchedPlate + "\" (edit distance " + ofToString(decision.editDistance) + ")";
 				ofDrawBitmapStringHighlight("ACCESS DENIED  -  " + reason, margin, yCursor + 10);
 			}
-		}
+		
 	} else {
 		ofSetColor(255, 0, 0);
 		ofDrawBitmapStringHighlight("No plate detected for current active mode.", margin, yCursor + 15, ofColor::red, ofColor::white);
 	}
 }
+
 //--------------------------------------------------------------
 void ofApp::keyPressed(int key) {
 	// 1. Mode switching
