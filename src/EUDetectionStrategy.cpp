@@ -18,7 +18,8 @@ LicensePlate EUDetectionStrategy::detect(const ofPixels & input) {
 	ofPixels colorFiltered = filterBlueStrip(input);
 
 	// Stage 2: Geometric analysis - derive the full plate bounding box from the strip's position
-	ofRectangle plateBox = findPlateBoundingBox(colorFiltered);
+	int stripWidth = 0;
+	ofRectangle plateBox = findPlateBoundingBox(colorFiltered, stripWidth);
 
 	// Stage 3: Region of Interest (ROI) extraction and binarization
 	if (plateBox.width > 0 && plateBox.height > 0) {
@@ -33,6 +34,7 @@ LicensePlate EUDetectionStrategy::detect(const ofPixels & input) {
 		// Populate return structure
 		result.croppedPlate.setFromPixels(binarizedPlate);
 		result.boundingBox = plateBox;
+		result.stripWidthPx = stripWidth;
 		result.isValid = true;
 	} else {
 		result.isValid = false;
@@ -110,7 +112,9 @@ ofPixels EUDetectionStrategy::filterBlueStrip(const ofPixels & input) {
 // real strip happen to sit in the frame - unlike a fixed-position search cutoff, which only
 // works when the plate is known to be at a specific spot in the image.
 
-ofRectangle EUDetectionStrategy::findPlateBoundingBox(const ofPixels & thresholdedImage) {
+ofRectangle EUDetectionStrategy::findPlateBoundingBox(const ofPixels & thresholdedImage, int & outStripWidth) {
+	outStripWidth = 0; // safe default - only overwritten once a valid strip is confirmed below
+
 	int width = thresholdedImage.getWidth();
 	int height = thresholdedImage.getHeight();
 
@@ -223,6 +227,10 @@ ofRectangle EUDetectionStrategy::findPlateBoundingBox(const ofPixels & threshold
 	if (plateX + plateWidth > width) {
 		plateWidth = width - plateX;
 	}
+
+	// Report the strip's own width (relative to the final crop's left edge, which is
+	// exactly minX) so a caller can trim it out of the crop before running external OCR.
+	outStripWidth = stripWidth;
 
 	// --- DEBUG: confirm this code path is actually running with the expected numbers ---
 	ofLogNotice("EUDetection") << "stripHeight=" << stripHeight

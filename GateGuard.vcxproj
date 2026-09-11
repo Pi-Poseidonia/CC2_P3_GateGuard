@@ -214,9 +214,9 @@
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="AccessManager.cpp" />
+    <ClCompile Include="src\AccessLog.cpp" />
     <ClCompile Include="src\EUDetectionStrategy.cpp" />
-    <ClCompile Include="src\IndianDetectionStrategy.cpp" />
+    <ClCompile Include="src\GateAccessController.cpp" />
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\ofApp.cpp" />
     <ClCompile Include="src\Platedetector.cpp" />
@@ -230,13 +230,16 @@
     <ClCompile Include="..\..\..\addons\ofxGui\src\ofxSlider.cpp" />
     <ClCompile Include="..\..\..\addons\ofxGui\src\ofxSliderGroup.cpp" />
     <ClCompile Include="..\..\..\addons\ofxGui\src\ofxToggle.cpp" />
+    <ClCompile Include="src\Platedetector.cpp" />
+    <ClCompile Include="src\Tesseractplatereader.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="AccessManager.h" />
-    <ClInclude Include="RegisteredUser.h" />
+    <ClInclude Include="LicensePlate.h" />
+    <ClInclude Include="PlateDetectionStrategy.h" />
+    <ClInclude Include="src\AccessDecision.h" />
+    <ClInclude Include="src\AccessLog.h" />
     <ClInclude Include="src\EUDetectionStrategy.h" />
-    <ClInclude Include="src\IndianDetectionStrategy.h" />
-    <ClInclude Include="src\LicensePlate.h" />
+    <ClInclude Include="src\GateAccessController.h" />
     <ClInclude Include="src\ofApp.h" />
     <ClInclude Include="src\PlateDetectionStrategy.h" />
     <ClInclude Include="src\Platedetector.h" />
@@ -252,6 +255,8 @@
     <ClInclude Include="..\..\..\addons\ofxGui\src\ofxSlider.h" />
     <ClInclude Include="..\..\..\addons\ofxGui\src\ofxSliderGroup.h" />
     <ClInclude Include="..\..\..\addons\ofxGui\src\ofxToggle.h" />
+    <ClInclude Include="src\Platedetector.h" />
+    <ClInclude Include="src\Tesseractplatereader.h" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="$(OF_ROOT)\libs\openFrameworksCompiled\project\vs\openframeworksLib.vcxproj">
@@ -270,6 +275,8 @@
     <Image Include="bin\data\images\I_TN87.jpg" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="bin\tessdata\eng.traineddata" />
+    <None Include="config.make" />
     <None Include="README.md" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

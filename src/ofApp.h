@@ -1,11 +1,14 @@
 #pragma once
 
+#include "AccessDecision.h"
+#include "AccessLog.h"
 #include "EUDetectionStrategy.h"
-#include "IndianDetectionStrategy.h"
+#include "GateAccessController.h"
 #include "LicensePlate.h"
 #include "PlateDetector.h"
-#include "AccessManager.h"
+#include "TesseractPlateReader.h"
 #include "ofMain.h"
+#include <algorithm>
 #include <memory>
 #include <string>
 #include <vector>
@@ -71,7 +74,18 @@ private:
 	std::vector<LicensePlate> euResults; // Vector for EU detection results
 	std::vector<LicensePlate> indianResults; // Vector for Indian detection results
 
+	// --- Two OCR engines run side by side on the same detected plate crop, for
+	// direct accuracy comparison: our custom zoning matcher (inside PlateDetector)
+	// vs Tesseract. Detection (EUDetectionStrategy) is shared/unchanged either way. ---
 	PlateDetector euDetector { std::make_shared<EUDetectionStrategy>() };
+	TesseractPlateReader tesseractReader;
+	std::vector<std::string> tesseractResults;
+
+	// --- Phase 3: fuzzy-match each Tesseract result against the authorized plate
+	// list (bin/data/users.csv), and log every decision (granted or denied). ---
+	GateAccessController accessController;
+	AccessLog accessLog;
+	std::vector<AccessDecision> accessDecisions;
 
 	// Which test image is currently shown - cycle with LEFT/RIGHT arrow keys
 	int currentIndex = 0;

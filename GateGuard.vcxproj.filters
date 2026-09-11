@@ -41,15 +41,10 @@
       <Filter>src</Filter>
     </ClCompile>
     <ClCompile Include="src\EUDetectionStrategy.cpp" />
-    <ClCompile Include="src\EUDetectionStrategy.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Platedetector.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="AccessManager.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
+    <ClCompile Include="src\Platedetector.cpp" />
+    <ClCompile Include="src\Tesseractplatereader.cpp" />
+    <ClCompile Include="src\AccessLog.cpp" />
+    <ClCompile Include="src\GateAccessController.cpp" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="src">
@@ -113,21 +108,14 @@
     </ClInclude>
     <ClInclude Include="src\EUDetectionStrategy.h" />
     <ClInclude Include="LicensePlate.h" />
-    <ClInclude Include="src\LicensePlate.h">
-      <Filter>src</Filter>
-    </ClInclude>
-    <ClInclude Include="src\EUDetectionStrategy.h">
-      <Filter>src</Filter>
-    </ClInclude>
-    <ClInclude Include="src\Platedetector.h">
-      <Filter>src</Filter>
-    </ClInclude>
-    <ClInclude Include="RegisteredUser.h">
-      <Filter>src</Filter>
-    </ClInclude>
-    <ClInclude Include="AccessManager.h">
-      <Filter>src</Filter>
-    </ClInclude>
+    <ClInclude Include="src\Platedetector.h" />
+    <ClInclude Include="src\Tesseractplatereader.h" />
+    <ClInclude Include="src\AccessDecision.h" />
+    <ClInclude Include="src\AccessLog.h" />
+    <ClInclude Include="src\GateAccessController.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="icon.rc" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="bin\data\images\EU_DE.jpg" />
@@ -142,5 +130,6 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="README.md" />
+    <None Include="bin\tessdata\eng.traineddata" />
   </ItemGroup>
 </Project>
