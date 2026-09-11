@@ -103,7 +103,7 @@ void ofApp::setup() {
 
 ofSetWindowTitle("PlateDetector - Multi-Region Testing (EU & India)");
 
-	// --- 1. Initialize Smart Pointers & Strategy ---
+	// --- Initialize Smart Pointers & Strategy ---
 	euStrategy = std::make_shared<EUDetectionStrategy>();
 	indianStrategy = std::make_shared<IndianDetectionStrategy>();
 
@@ -199,7 +199,21 @@ ofSetWindowTitle("PlateDetector - Multi-Region Testing (EU & India)");
 		}
 	}
 
-	// --- 4. Set detector back to starting mode ---
+	// --- Polymorphic Logging Initialization ---
+	loggers.push_back(std::make_shared<ConsoleAccessLogger>());
+	loggers.push_back(std::make_shared<EmailSecurityAlert>());
+
+	// first image / log all decisions:
+	for (size_t i = 0; i < accessDecisions.size(); ++i) {
+		std::string plateText = (i < tesseractResults.size()) ? tesseractResults[i] : "UNKNOWN";
+
+		for (auto & logger : loggers) {
+			logger->logAccess(plateText, accessDecisions[i].granted);
+		}
+	
+}
+
+	// --- Set detector back to starting mode ---
 	if (currentMode == MODE_EU) {
 		detector.setStrategy(euStrategy);
 	} else {
@@ -344,6 +358,18 @@ void ofApp::keyPressed(int key) {
 		currentIndex = (currentIndex + 1) % euImages.size();
 	} else if (key == OF_KEY_LEFT) {
 		currentIndex = (currentIndex - 1 + euImages.size()) % euImages.size();
+	}
+
+	if (key == OF_KEY_RIGHT || key == OF_KEY_LEFT) {
+		if (currentIndex >= 0 && currentIndex < (int)accessDecisions.size()) {
+			std::string currentPlate = (currentIndex < (int)tesseractResults.size())
+				? tesseractResults[currentIndex]
+				: "UNKNOWN";
+
+			for (auto & logger : loggers) {
+				logger->logAccess(currentPlate, accessDecisions[currentIndex].granted);
+			}
+		}
 	}
 }
 

@@ -8,6 +8,9 @@
 	#include "LicensePlate.h"
 	#include "PlateDetector.h"
 	#include "TesseractPlateReader.h"
+	#include "AccessLogger.h"
+	#include "ConsoleAccessLogger.h"
+	#include "EmailSecurityAlert.h"
 	#include "ofMain.h"
 	#include <algorithm>
 	#include <memory>
@@ -39,6 +42,9 @@
 		void windowResized(int w, int h);
 		void dragEvent(ofDragInfo dragInfo);
 		void gotMessage(ofMessage msg);
+
+		// --- Polymorphic Logging ---
+		std::vector<std::shared_ptr<AccessLogger>> loggers;
 
 	private:
 
