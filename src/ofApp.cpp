@@ -119,10 +119,18 @@ void ofApp::setup() {
 							  << "Check that bin/tessdata/eng.traineddata exists.";
 	}
 
+	// --- Load the authorized plate list for Phase 3 access control ---
+	bool accessListReady = accessController.loadAuthorizedPlates("users.csv");
+	if (!accessListReady) {
+		ofLogWarning("ofApp") << "Authorized plate list failed to load - "
+							  << "check that bin/data/users.csv exists and has plates in its first column.";
+	}
+
 	// --- Load and process every test image up front ---
 	euImages.resize(testImageFilenames.size());
 	euResults.resize(testImageFilenames.size());
 	tesseractResults.resize(testImageFilenames.size());
+	accessDecisions.resize(testImageFilenames.size());
 
 	for (size_t i = 0; i < testImageFilenames.size(); i++) {
 		ofImage & img = euImages[i];
@@ -168,6 +176,13 @@ void ofApp::setup() {
 					tesseractResults[i] = tesseractReader.recognize(forOcr);
 					ofLogNotice("Tesseract") << "[" << testImageFilenames[i] << "] (trimmed " << trimAmount
 											 << "px strip) tesseractText=\"" << tesseractResults[i] << "\"";
+
+					// --- Phase 3: evaluate this OCR result against the authorized list,
+					// and record the decision in the access log ---
+					if (accessListReady) {
+						accessDecisions[i] = accessController.evaluate(tesseractResults[i]);
+						accessLog.record(accessDecisions[i]);
+					}
 				}
 			} else {
 				ofLogNotice("EUDetection") << "[" << testImageFilenames[i] << "] No plate detected.";
@@ -244,6 +259,26 @@ void ofApp::draw() {
 		ofSetColor(255, 200, 0);
 		std::string tessText = (currentIndex < (int)tesseractResults.size()) ? tesseractResults[currentIndex] : "";
 		ofDrawBitmapStringHighlight("Tesseract:      " + tessText, margin, yCursor + 10);
+		yCursor += 25;
+
+		// --- Phase 3: show the access decision for this plate ---
+		if (currentIndex < (int)accessDecisions.size()) {
+			const AccessDecision & decision = accessDecisions[currentIndex];
+
+			if (decision.granted) {
+				ofSetColor(0, 255, 0);
+				ofDrawBitmapStringHighlight(
+					"ACCESS GRANTED  -  matched \"" + decision.matchedPlate
+						+ "\" (edit distance " + ofToString(decision.editDistance) + ")",
+					margin, yCursor + 10);
+			} else {
+				ofSetColor(255, 60, 60);
+				std::string reason = decision.matchedPlate.empty()
+					? "no close match found"
+					: "closest was \"" + decision.matchedPlate + "\" (edit distance " + ofToString(decision.editDistance) + ")";
+				ofDrawBitmapStringHighlight("ACCESS DENIED  -  " + reason, margin, yCursor + 10);
+			}
+		}
 	} else {
 		ofSetColor(255, 0, 0);
 		ofDrawBitmapString("No plate detected in this image", margin, yCursor + 20);

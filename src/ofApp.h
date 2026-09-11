@@ -1,6 +1,9 @@
 #pragma once
 
+#include "AccessDecision.h"
+#include "AccessLog.h"
 #include "EUDetectionStrategy.h"
+#include "GateAccessController.h"
 #include "LicensePlate.h"
 #include "PlateDetector.h"
 #include "TesseractPlateReader.h"
@@ -47,6 +50,12 @@ public:
 	PlateDetector euDetector { std::make_shared<EUDetectionStrategy>() };
 	TesseractPlateReader tesseractReader;
 	std::vector<std::string> tesseractResults;
+
+	// --- Phase 3: fuzzy-match each Tesseract result against the authorized plate
+	// list (bin/data/users.csv), and log every decision (granted or denied). ---
+	GateAccessController accessController;
+	AccessLog accessLog;
+	std::vector<AccessDecision> accessDecisions;
 
 	// Which test image is currently shown - cycle with LEFT/RIGHT arrow keys
 	int currentIndex = 0;
