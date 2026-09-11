@@ -4,6 +4,7 @@
 #include "IndianDetectionStrategy.h"
 #include "LicensePlate.h"
 #include "PlateDetector.h"
+#include "AccessManager.h"
 #include "ofMain.h"
 #include <memory>
 #include <string>
@@ -35,20 +36,23 @@ public:
 	void dragEvent(ofDragInfo dragInfo);
 	void gotMessage(ofMessage msg);
 
+private:
+
 	// --- Dynamic Test Mode ---
 	DetectionMode currentMode = MODE_INDIAN; // default to Indian mode; can be changed via key press
 
-	// --- EU plate testing ---
+// --- Detector & Strategies with smart pointers ---
+	std::shared_ptr<EUDetectionStrategy> euStrategy;
+	std::shared_ptr<IndianDetectionStrategy> indianStrategy;
+
+	// Main detector (strategy is set dynamically via setStrategy)
+	PlateDetector detector;
+
+	// --- Single Image Test Data ---
 	ofImage testImage;
-	EUDetectionStrategy euStrategy;
-	LicensePlate result;
-
-	// --- DEBUG: intermediate blue-strip mask, for visual tuning of thresholds ---
+	LicensePlate result; // EU detection result
+	LicensePlate indianResult; // Indian detection result
 	ofImage debugMask;
-
-	// --- Indian plate testing ---
-	IndianDetectionStrategy indianStrategy;
-	LicensePlate indianResult;
 
 	// --- EU plate testing: multiple images, processed once at startup ---
 	// NOTE: Indian testing removed for now - IndianDetectionStrategy.h/.cpp aren't yet
@@ -56,14 +60,22 @@ public:
 	std::vector<std::string> testImageFilenames = {
 		"images/EU_DE1.jpg",
 		"images/EU-DE2.jpg",
-		"images/EU-DE3.jpg"
+		"images/EU-DE3.jpg",
+		"images/I_HR26.jpg",
+		"images/I_RJ14.jpg",
+		"images/I_RJ19.jpg",
+		"images/I_TN87.jpg"
 	};
 
 	std::vector<ofImage> euImages;
-	std::vector<LicensePlate> euResults;
+	std::vector<LicensePlate> euResults; // Vector for EU detection results
+	std::vector<LicensePlate> indianResults; // Vector for Indian detection results
 
 	PlateDetector euDetector { std::make_shared<EUDetectionStrategy>() };
 
 	// Which test image is currently shown - cycle with LEFT/RIGHT arrow keys
 	int currentIndex = 0;
+
+	// Handles database loading, user lookup, and access control checks
+	AccessManager accessManager;
 };

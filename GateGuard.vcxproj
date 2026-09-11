@@ -214,6 +214,7 @@
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="AccessManager.cpp" />
     <ClCompile Include="src\EUDetectionStrategy.cpp" />
     <ClCompile Include="src\IndianDetectionStrategy.cpp" />
     <ClCompile Include="src\main.cpp" />
@@ -231,6 +232,8 @@
     <ClCompile Include="..\..\..\addons\ofxGui\src\ofxToggle.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="AccessManager.h" />
+    <ClInclude Include="RegisteredUser.h" />
     <ClInclude Include="src\EUDetectionStrategy.h" />
     <ClInclude Include="src\IndianDetectionStrategy.h" />
     <ClInclude Include="src\LicensePlate.h" />
@@ -256,12 +259,6 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
-    <ResourceCompile Include="icon.rc">
-      <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Debug|x64' or '$(Configuration)|$(Platform)'=='Debug|ARM64' or '$(Configuration)|$(Platform)'=='Debug|ARM64EC'">/D_DEBUG %(AdditionalOptions)</AdditionalOptions>
-      <AdditionalIncludeDirectories>$(OF_ROOT)\libs\openFrameworksCompiled\project\vs</AdditionalIncludeDirectories>
-    </ResourceCompile>
-  </ItemGroup>
-  <ItemGroup>
     <Image Include="bin\data\images\EU-DE2.jpg" />
     <Image Include="bin\data\images\EU-DE3.jpg" />
     <Image Include="bin\data\images\EU_DE.jpg" />
@@ -273,7 +270,6 @@
     <Image Include="bin\data\images\I_TN87.jpg" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="config.make" />
     <None Include="README.md" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

@@ -3,60 +3,59 @@
 //--------------------------------------------------------------
 void ofApp::setup() {
 
-	ofSetWindowTitle("PlateDetector - EU Testing (multiple images)");
+ofSetWindowTitle("PlateDetector - Multi-Region Testing (EU & India)");
 
-	// --- Load character templates once, shared across all test images ---
-	euDetector.loadTemplates("alphabet/");
+	// --- 1. Initialize Smart Pointers & Strategy ---
+	euStrategy = std::make_shared<EUDetectionStrategy>();
+	indianStrategy = std::make_shared<IndianDetectionStrategy>();
 
-	if (testImage.isAllocated()) {
+	// Set default active strategy and load OCR templates
+	detector.setStrategy(indianStrategy);
+	detector.loadTemplates("alphabet/");
 
-	// --- DEBUG: generate the intermediate blue-strip mask for visualization ---
-	ofPixels mask = euStrategy.filterBlueStrip(testImage.getPixels());
-	debugMask.setFromPixels(mask);
-
-	// --- Load and process every test image up front ---
+	// --- 2. Resize result vectors ---
 	euImages.resize(testImageFilenames.size());
 	euResults.resize(testImageFilenames.size());
+	indianResults.resize(testImageFilenames.size());
 
+	// --- 3. Load and process every test image for both regions ---
 	for (size_t i = 0; i < testImageFilenames.size(); i++) {
 		ofImage & img = euImages[i];
 
 		if (img.load(testImageFilenames[i])) {
 			img.setImageType(OF_IMAGE_COLOR);
 
-			euResults[i] = euDetector.process(img.getPixels());
+			// Run EU detection & OCR
+			detector.setStrategy(euStrategy);
+			euResults[i] = detector.process(img.getPixels());
 
-			if (euResults[i].isValid) {
-				ofLogNotice("EUDetection") << "[" << testImageFilenames[i] << "] Plate found at ("
-										   << euResults[i].boundingBox.x << ", " << euResults[i].boundingBox.y << ") size "
-										   << euResults[i].boundingBox.width << "x" << euResults[i].boundingBox.height
-										   << " text=\"" << euResults[i].plateText << "\"";
-			} else {
-				ofLogNotice("EUDetection") << "[" << testImageFilenames[i] << "] No plate detected.";
-			}
+			// Run Indian detection & OCR
+			detector.setStrategy(indianStrategy);
+			indianResults[i] = detector.process(img.getPixels());
+
+			// Logging
+			ofLogNotice("Detection") << "[" << testImageFilenames[i] << "]"
+									 << " EU Text: \"" << euResults[i].plateText << "\""
+									 << " | Indian Text: \"" << indianResults[i].plateText << "\"";
 		} else {
 			ofLogError("ofApp") << "Could not load test image: " << testImageFilenames[i];
 		}
 	}
 
-// --- Indian Plate Testing ---
-		indianResult = indianStrategy.detect(testImage.getPixels());
-
-		if (indianResult.isValid) {
-			ofLogNotice("IndianDetection") << "Indian HSRP Plate found at ("
-										   << indianResult.boundingBox.x << ", " << indianResult.boundingBox.y << ") size "
-										   << indianResult.boundingBox.width << "x" << indianResult.boundingBox.height;
-		} else {
-			ofLogNotice("IndianDetection") << "No Indian plate detected.";
-		}
-
+	// --- 4. Set detector back to starting mode ---
+	if (currentMode == MODE_EU) {
+		detector.setStrategy(euStrategy);
 	} else {
-		ofLogError("ofApp") << "Could not load test image from bin/data/images/";
+		detector.setStrategy(indianStrategy);
 	}
 
 	ofLogNotice("ofApp") << "Loaded " << testImageFilenames.size() << " test image(s). "
 						 << "Use LEFT/RIGHT arrow keys to switch between them.";
+
+	//load user data base
+	accessManager.loadDatabase("users.csv");
 }
+
 
 //--------------------------------------------------------------
 void ofApp::update() {
@@ -67,119 +66,132 @@ void ofApp::draw() {
 	ofBackground(30);
 	ofSetColor(255);
 
-	if (euImages.empty()) {
+	if (euImages.empty() || currentIndex >= euImages.size()) {
 		ofDrawBitmapStringHighlight("No test images loaded.", 20, 30);
 		return;
 	}
 
 	float margin = 15;
 	float availableWidth = ofGetWidth() - margin * 2;
-	float yCursor = margin;
+	float yCursor = 50;
 
+	// --- 1. Top Status Banner ---
+	std::string modeStr = (currentMode == MODE_EU) ? "EU" : (currentMode == MODE_INDIAN ? "INDIAN" : "BOTH");
+	std::string header = "Keys: [1] EU | [2] Indian | [3] Both  -->  Mode: " + modeStr
+		+ " | Image " + ofToString(currentIndex + 1) + "/" + ofToString(euImages.size())
+		+ " (" + testImageFilenames[currentIndex] + ") [<- / ->]";
+	ofDrawBitmapStringHighlight(header, margin, 25, ofColor::black, ofColor::yellow);
 
-	// original image & layout variables
-	float scale1 = availableWidth / testImage.getWidth();
-	float h1 = testImage.getHeight() * scale1;
-	testImage.draw(margin, margin, availableWidth, h1);
+	// Extract filename string for database lookup test
+	std::string currentFilename = testImageFilenames[currentIndex];
 
-	std::string header = "Image " + ofToString(currentIndex + 1) + " / " + ofToString(euImages.size())
-		+ "   (" + testImageFilenames[currentIndex] + ")   [<- / -> to switch]";
-	ofDrawBitmapStringHighlight(header, margin, yCursor + 10);
-	yCursor += 25;
-
+	// Get image and detection results (using indianResult single instance from ofApp.h)
 	ofImage & img = euImages[currentIndex];
-	LicensePlate & result = euResults[currentIndex];
+	LicensePlate & euRes = euResults[currentIndex];
+	LicensePlate & inRes = indianResult;
 
 	if (!img.isAllocated()) {
 		ofSetColor(255, 0, 0);
-		ofDrawBitmapString("Failed to load this image - check the filename/path.", margin, yCursor + 20);
+		ofDrawBitmapString("Failed to load image: " + currentFilename, margin, yCursor + 20);
 		return;
 	}
 
-	ofSetColor(255);
+	// --- 2. Draw Original Image & Bounding Boxes ---
 	float scale = availableWidth / img.getWidth();
 	float h = img.getHeight() * scale;
 	img.draw(margin, yCursor, availableWidth, h);
 
-	// --- 1. EU Bounding Box (for EU mode and both modes) ---
-	if ((currentMode == MODE_EU || currentMode == MODE_BOTH) && result.isValid) {
-		ofNoFill();
-		ofSetLineWidth(3);
+	ofNoFill();
+	ofSetLineWidth(3);
 
-		ofSetColor(0, 100, 255); // blue EU
-		ofDrawRectangle(
-			margin + result.boundingBox.x * scale1,
-			margin + result.boundingBox.y * scale1,
-			result.boundingBox.width * scale1,
-			result.boundingBox.height * scale1);
-		ofDrawBitmapString("EU Plate", margin + result.boundingBox.x * scale1, margin + result.boundingBox.y * scale1 - 5);
-
+	// EU Bounding Box (Blue)
+	if ((currentMode == MODE_EU || currentMode == MODE_BOTH) && euRes.isValid) {
 		ofSetColor(0, 100, 255);
 		ofDrawRectangle(
-			margin + result.boundingBox.x * scale,
-			yCursor + result.boundingBox.y * scale,
-			result.boundingBox.width * scale,
-			result.boundingBox.height * scale);
-
+			margin + euRes.boundingBox.x * scale,
+			yCursor + euRes.boundingBox.y * scale,
+			euRes.boundingBox.width * scale,
+			euRes.boundingBox.height * scale);
+		ofDrawBitmapString("EU Plate", margin + euRes.boundingBox.x * scale, yCursor + euRes.boundingBox.y * scale - 5);
 	}
+
+	// Indian Bounding Box (Green)
+	if ((currentMode == MODE_INDIAN || currentMode == MODE_BOTH) && inRes.isValid) {
+		ofSetColor(0, 255, 0);
+		ofDrawRectangle(
+			margin + inRes.boundingBox.x * scale,
+			yCursor + inRes.boundingBox.y * scale,
+			inRes.boundingBox.width * scale,
+			inRes.boundingBox.height * scale);
+		ofDrawBitmapString("Indian HSRP", margin + inRes.boundingBox.x * scale, yCursor + inRes.boundingBox.y * scale - 5);
+	}
+
 	yCursor += h + margin;
 
+	// --- 3. Draw Binarized Crop & Access Control ---
+	ofSetLineWidth(1);
 
-	// --- 2. Indian Bounding Box (for Indian mode and both modes) ---
-	if ((currentMode == MODE_INDIAN || currentMode == MODE_BOTH) && indianResult.isValid) {
-		ofNoFill();
-		ofSetLineWidth(3);
-		ofSetColor(0, 255, 0); // green for India
-		ofDrawRectangle(
-			margin + indianResult.boundingBox.x * scale1,
-			margin + indianResult.boundingBox.y * scale1,
-			indianResult.boundingBox.width * scale1,
-			indianResult.boundingBox.height * scale1);
-		ofDrawBitmapString("Indian HSRP", margin + indianResult.boundingBox.x * scale1, margin + indianResult.boundingBox.y * scale1 - 5);
+	// Indian Crop & Access Control Check
+	if ((currentMode == MODE_INDIAN || currentMode == MODE_BOTH) && inRes.isValid) {
+		ofSetColor(255);
+		if (inRes.croppedPlate.isAllocated()) {
+			float cropScale = availableWidth / inRes.croppedPlate.getWidth();
+			float cropH = inRes.croppedPlate.getHeight() * cropScale;
+			inRes.croppedPlate.draw(margin, yCursor, availableWidth, cropH);
+			yCursor += cropH + 5;
+		}
+
+		bool isAuthorized = accessManager.isAuthorized(currentFilename);
+		std::string statusText = isAuthorized ? "ACCESS GRANTED" : "ACCESS DENIED";
+		ofColor statusBgColor = isAuthorized ? ofColor::green : ofColor::red;
+
+		ofDrawBitmapStringHighlight("Indian Security Check: " + statusText, margin, yCursor + 15, statusBgColor, ofColor::white);
+		yCursor += 35;
 	}
 
-
-	float yCursor = margin + h1 + margin;
-
-	// --- 3. Show binarized plate per active mode---
-	if ((currentMode == MODE_INDIAN || currentMode == MODE_BOTH) && indianResult.isValid) {
+	// EU Crop & Access Control Check
+	if ((currentMode == MODE_EU || currentMode == MODE_BOTH) && euRes.isValid) {
 		ofSetColor(255);
-		float scale3 = availableWidth / indianResult.croppedPlate.getWidth();
-		float h3 = indianResult.croppedPlate.getHeight() * scale3;
-		indianResult.croppedPlate.draw(margin, yCursor, availableWidth, h3);
-		ofDrawBitmapStringHighlight("[Indian Engine Crop]", margin + 5, yCursor + 15);
-	} else if ((currentMode == MODE_EU || currentMode == MODE_BOTH) && result.isValid) {
-		ofSetColor(255);
-		float scale3 = availableWidth / result.croppedPlate.getWidth();
-		float h3 = result.croppedPlate.getHeight() * scale3;
-		result.croppedPlate.draw(margin, yCursor, availableWidth, h3);
-		ofDrawBitmapStringHighlight("[EU Engine Crop]", margin + 5, yCursor + 15);
-	} else {
-		ofSetColor(255, 0, 0);
-		ofDrawBitmapString("No plate detected for current mode", margin, yCursor + 20);
+		if (euRes.croppedPlate.isAllocated()) {
+			float cropScale = availableWidth / euRes.croppedPlate.getWidth();
+			float cropH = euRes.croppedPlate.getHeight() * cropScale;
+			euRes.croppedPlate.draw(margin, yCursor, availableWidth, cropH);
+			yCursor += cropH + 5;
+		}
 
-	if (result.isValid) {
-		ofSetColor(255);
-		float cropScale = availableWidth / result.croppedPlate.getWidth();
-		float cropH = result.croppedPlate.getHeight() * cropScale;
-		result.croppedPlate.draw(margin, yCursor, availableWidth, cropH);
-		yCursor += cropH + margin;
+		bool isAuthorized = accessManager.isAuthorized(currentFilename);
+		std::string statusText = isAuthorized ? "ACCESS GRANTED" : "ACCESS DENIED";
+		ofColor statusBgColor = isAuthorized ? ofColor::green : ofColor::red;
 
-		ofSetColor(0, 255, 0);
-		ofDrawBitmapStringHighlight("Text: " + result.plateText, margin, yCursor + 10);
-	} else {
-		ofSetColor(255, 0, 0);
-		ofDrawBitmapString("No plate detected in this image", margin, yCursor + 20);
-
+		ofDrawBitmapStringHighlight("EU Security Check: " + statusText, margin, yCursor + 15, statusBgColor, ofColor::white);
+		yCursor += 35;
 	}
 
-	// --- 4. Top Status Banner ---
-	std::string modeStr = (currentMode == MODE_EU) ? "EU" : (currentMode == MODE_INDIAN ? "INDIAN" : "BOTH");
-	ofDrawBitmapStringHighlight("Key 1: EU | Key 2: Indian | Key 3: Both  -->  Active Mode: " + modeStr, 20, 25);
+	// Display alert if no plate detected in active mode
+	bool noPlateFound = (currentMode == MODE_EU && !euRes.isValid) || (currentMode == MODE_INDIAN && !inRes.isValid) || (currentMode == MODE_BOTH && !euRes.isValid && !inRes.isValid);
+
+	if (noPlateFound) {
+		ofSetColor(255, 0, 0);
+		ofDrawBitmapStringHighlight("No plate detected for current active mode.", margin, yCursor + 15, ofColor::red, ofColor::white);
+	}
 }
-
 //--------------------------------------------------------------
 void ofApp::keyPressed(int key) {
+	// 1. Mode switching
+	if (key == '1') {
+		currentMode = MODE_EU;
+		if (euStrategy) detector.setStrategy(euStrategy);
+		ofLogNotice("ofApp") << "Switched to MODE_EU";
+	} else if (key == '2') {
+		currentMode = MODE_INDIAN;
+		if (indianStrategy) detector.setStrategy(indianStrategy);
+		ofLogNotice("ofApp") << "Switched to MODE_INDIAN";
+	} else if (key == '3') {
+		currentMode = MODE_BOTH;
+		ofLogNotice("ofApp") << "Switched to MODE_BOTH";
+	}
+
+	// 2. Image navigation
 	if (euImages.empty()) {
 		return;
 	}

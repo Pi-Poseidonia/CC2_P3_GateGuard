@@ -37,17 +37,19 @@
     <ClCompile Include="..\..\..\addons\ofxGui\src\ofxToggle.cpp">
       <Filter>addons\ofxGui\src</Filter>
     </ClCompile>
-
-    <ClCompile Include="src\EUDetectionStrategy.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
     <ClCompile Include="src\IndianDetectionStrategy.cpp">
       <Filter>src</Filter>
     </ClCompile>
-
     <ClCompile Include="src\EUDetectionStrategy.cpp" />
-    <ClCompile Include="src\Platedetector.cpp" />
-
+    <ClCompile Include="src\EUDetectionStrategy.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Platedetector.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="AccessManager.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="src">
@@ -103,30 +105,30 @@
     <ClInclude Include="..\..\..\addons\ofxGui\src\ofxToggle.h">
       <Filter>addons\ofxGui\src</Filter>
     </ClInclude>
-
-    <ClInclude Include="LicensePlate.h">
-      <Filter>src</Filter>
-    </ClInclude>
-    <ClInclude Include="src\EUDetectionStrategy.h">
-      <Filter>src</Filter>
-    </ClInclude>
     <ClInclude Include="src\IndianDetectionStrategy.h">
       <Filter>src</Filter>
     </ClInclude>
     <ClInclude Include="src\PlateDetectionStrategy.h">
       <Filter>src</Filter>
     </ClInclude>
-
     <ClInclude Include="src\EUDetectionStrategy.h" />
-    <ClInclude Include="PlateDetectionStrategy.h" />
     <ClInclude Include="LicensePlate.h" />
-    <ClInclude Include="src\Platedetector.h" />
-
+    <ClInclude Include="src\LicensePlate.h">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\EUDetectionStrategy.h">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Platedetector.h">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="RegisteredUser.h">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="AccessManager.h">
+      <Filter>src</Filter>
+    </ClInclude>
   </ItemGroup>
-  <ItemGroup>
-    <ResourceCompile Include="icon.rc" />
-  </ItemGroup>
-
   <ItemGroup>
     <Image Include="bin\data\images\EU_DE.jpg" />
     <Image Include="bin\data\images\I_HR26.jpg" />
@@ -139,8 +141,6 @@
     <Image Include="bin\data\images\I_TN87.jpg" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="config.make" />
     <None Include="README.md" />
   </ItemGroup>
-
 </Project>
