@@ -99,9 +99,60 @@ static ofPixels trimStrayEdgeBlob(const ofPixels & input) {
 }
 
 //--------------------------------------------------------------
+void ofApp::processOneImage(const std::string & filename, PlateDetector & detector,
+	ofImage & outImage, LicensePlate & outResult,
+	std::string & outTesseractText, AccessDecision & outDecision, bool accessListReady) {
+
+	if (!outImage.load(filename)) {
+		ofLogError("ofApp") << "Could not load test image: " << filename;
+		return;
+	}
+	outImage.setImageType(OF_IMAGE_COLOR);
+
+	outResult = detector.process(outImage.getPixels());
+
+	if (!outResult.isValid) {
+		ofLogNotice("Detection") << "[" << filename << "] No plate detected.";
+		return;
+	}
+
+	ofLogNotice("Detection") << "[" << filename << "] Plate found at ("
+							 << outResult.boundingBox.x << ", " << outResult.boundingBox.y << ") size "
+							 << outResult.boundingBox.width << "x" << outResult.boundingBox.height
+							 << " customText=\"" << outResult.plateText << "\"";
+
+	// Run Tesseract on the detected plate crop, with any color strip trimmed off the
+	// left edge first (stripWidthPx is 0 for strategies with no such strip, e.g.
+	// Indian plates - trimAmount then naturally becomes 0, a no-op).
+	ofPixels platePixels = outResult.croppedPlate.getPixels();
+	int trimAmount = static_cast<int>(outResult.stripWidthPx * 1.15f);
+	trimAmount = std::min(trimAmount, static_cast<int>(platePixels.getWidth()) - 1);
+
+	ofPixels forOcr;
+	if (trimAmount > 0) {
+		platePixels.cropTo(forOcr, trimAmount, 0,
+			platePixels.getWidth() - trimAmount, platePixels.getHeight());
+	} else {
+		forOcr = platePixels;
+	}
+
+	forOcr = trimStrayEdgeBlob(forOcr);
+	forOcr = tightCropToInkWithPadding(forOcr, 5);
+
+	outTesseractText = tesseractReader.recognize(forOcr);
+	ofLogNotice("Tesseract") << "[" << filename << "] (trimmed " << trimAmount
+							 << "px strip) tesseractText=\"" << outTesseractText << "\"";
+
+	if (accessListReady) {
+		outDecision = accessController.evaluate(outTesseractText);
+		accessLog.record(outDecision);
+	}
+}
+
+//--------------------------------------------------------------
 void ofApp::setup() {
 
-	ofSetWindowTitle("PlateDetector - EU Testing (multiple images)");
+	ofSetWindowTitle("GateGuard - EU Plate Testing");
 
 	// --- Load character templates once, shared across all test images ---
 	euDetector.loadTemplates("alphabet/");
@@ -126,73 +177,20 @@ void ofApp::setup() {
 							  << "check that bin/data/users.csv exists and has plates in its first column.";
 	}
 
-	// --- Load and process every test image up front ---
-	euImages.resize(testImageFilenames.size());
-	euResults.resize(testImageFilenames.size());
-	tesseractResults.resize(testImageFilenames.size());
-	accessDecisions.resize(testImageFilenames.size());
+	// --- EU images ---
+	euImages.resize(euImageFilenames.size());
+	euResults.resize(euImageFilenames.size());
+	euTesseractResults.resize(euImageFilenames.size());
+	euAccessDecisions.resize(euImageFilenames.size());
 
-	for (size_t i = 0; i < testImageFilenames.size(); i++) {
-		ofImage & img = euImages[i];
-
-		if (img.load(testImageFilenames[i])) {
-			img.setImageType(OF_IMAGE_COLOR);
-
-			euResults[i] = euDetector.process(img.getPixels());
-
-			if (euResults[i].isValid) {
-				ofLogNotice("EUDetection") << "[" << testImageFilenames[i] << "] Plate found at ("
-										   << euResults[i].boundingBox.x << ", " << euResults[i].boundingBox.y << ") size "
-										   << euResults[i].boundingBox.width << "x" << euResults[i].boundingBox.height
-										   << " customText=\"" << euResults[i].plateText << "\"";
-
-				// Run Tesseract on the detected plate crop, with the EU strip trimmed off
-				// the left edge first - otherwise the strip's stars/seal artwork can get
-				// misread as stray characters, since Tesseract has no notion of "this
-				// region is a color strip, not text." A small extra margin (+15%) is
-				// added past the strip's raw detected width, since a too-tight trim risks
-				// clipping into the first real character if the strip's edge was measured
-				// even slightly wide.
-				if (tesseractReady) {
-					ofPixels platePixels = euResults[i].croppedPlate.getPixels();
-					int trimAmount = static_cast<int>(euResults[i].stripWidthPx * 1.15f);
-					trimAmount = std::min(trimAmount, static_cast<int>(platePixels.getWidth()) - 1);
-
-					ofPixels forOcr;
-					if (trimAmount > 0) {
-						platePixels.cropTo(forOcr, trimAmount, 0,
-							platePixels.getWidth() - trimAmount, platePixels.getHeight());
-					} else {
-						forOcr = platePixels; // no strip detected for this strategy/image - use as-is
-					}
-
-					// First, drop a trailing stray blob (border/frame fragment) if one is
-					// isolated and much narrower than a real character would be...
-					forOcr = trimStrayEdgeBlob(forOcr);
-					// ...then tightly crop to whatever ink remains, so there's no
-					// leftover blank margin either.
-					forOcr = tightCropToInkWithPadding(forOcr, 5);
-
-					tesseractResults[i] = tesseractReader.recognize(forOcr);
-					ofLogNotice("Tesseract") << "[" << testImageFilenames[i] << "] (trimmed " << trimAmount
-											 << "px strip) tesseractText=\"" << tesseractResults[i] << "\"";
-
-					// --- Phase 3: evaluate this OCR result against the authorized list,
-					// and record the decision in the access log ---
-					if (accessListReady) {
-						accessDecisions[i] = accessController.evaluate(tesseractResults[i]);
-						accessLog.record(accessDecisions[i]);
-					}
-				}
-			} else {
-				ofLogNotice("EUDetection") << "[" << testImageFilenames[i] << "] No plate detected.";
-			}
-		} else {
-			ofLogError("ofApp") << "Could not load test image: " << testImageFilenames[i];
+	for (size_t i = 0; i < euImageFilenames.size(); i++) {
+		if (tesseractReady) {
+			processOneImage(euImageFilenames[i], euDetector, euImages[i], euResults[i],
+				euTesseractResults[i], euAccessDecisions[i], accessListReady);
 		}
 	}
 
-	ofLogNotice("ofApp") << "Loaded " << testImageFilenames.size() << " test image(s). "
+	ofLogNotice("ofApp") << "Loaded " << euImageFilenames.size() << " test image(s). "
 						 << "Use LEFT/RIGHT arrow keys to switch between them.";
 }
 
@@ -209,16 +207,31 @@ void ofApp::draw() {
 		ofDrawBitmapStringHighlight("No test images loaded.", 20, 30);
 		return;
 	}
+	if (currentIndex >= (int)euImages.size()) {
+		currentIndex = 0;
+	}
 
 	float margin = 15;
 	float availableWidth = ofGetWidth() - margin * 2;
 	float yCursor = margin;
 
+	// --- Header: which image, navigation hint ---
 	std::string header = "Image " + ofToString(currentIndex + 1) + " / " + ofToString(euImages.size())
-		+ "   (" + testImageFilenames[currentIndex] + ")   [<- / -> to switch]";
+		+ "   (" + euImageFilenames[currentIndex] + ")   [<- / -> to switch]";
 	ofDrawBitmapStringHighlight(header, margin, yCursor + 10);
 	yCursor += 25;
 
+	// --- Phase 4 dashboard: gate status + strategy toggle, side by side ---
+	bool gateIsOpen = (currentIndex < (int)euAccessDecisions.size()) && euAccessDecisions[currentIndex].granted;
+	garageUI.drawGateStatus(gateIsOpen, margin, yCursor, 200, 40);
+
+	// NOTE: only "EU" is functionally wired up - IndianDetectionStrategy isn't part
+	// of this branch (see header comment). The "Indian" button is shown/clickable
+	// so the toggle UI is ready, but selecting it currently has no effect.
+	garageUI.drawStrategyToggle({ "EU", "Indian" }, margin + 220, yCursor);
+	yCursor += 55;
+
+	// --- Per-plate visual pipeline, delegated to PlateDisplayer ---
 	ofImage & img = euImages[currentIndex];
 	LicensePlate & result = euResults[currentIndex];
 
@@ -228,61 +241,33 @@ void ofApp::draw() {
 		return;
 	}
 
-	ofSetColor(255);
-	float scale = availableWidth / img.getWidth();
-	float h = img.getHeight() * scale;
-	img.draw(margin, yCursor, availableWidth, h);
+	std::vector<DisplayLine> lines;
 
 	if (result.isValid) {
-		ofNoFill();
-		ofSetLineWidth(3);
-		ofSetColor(0, 100, 255);
-		ofDrawRectangle(
-			margin + result.boundingBox.x * scale,
-			yCursor + result.boundingBox.y * scale,
-			result.boundingBox.width * scale,
-			result.boundingBox.height * scale);
-	}
-	yCursor += h + margin;
+		lines.push_back({ "Custom matcher: " + result.plateText, ofColor::green });
 
-	if (result.isValid) {
-		ofSetColor(255);
-		float cropScale = availableWidth / result.croppedPlate.getWidth();
-		float cropH = result.croppedPlate.getHeight() * cropScale;
-		result.croppedPlate.draw(margin, yCursor, availableWidth, cropH);
-		yCursor += cropH + margin;
+		std::string tessText = (currentIndex < (int)euTesseractResults.size()) ? euTesseractResults[currentIndex] : "";
+		lines.push_back({ "Tesseract:      " + tessText, ofColor(255, 200, 0) });
 
-		ofSetColor(0, 255, 0);
-		ofDrawBitmapStringHighlight("Custom matcher: " + result.plateText, margin, yCursor + 10);
-		yCursor += 25;
-
-		ofSetColor(255, 200, 0);
-		std::string tessText = (currentIndex < (int)tesseractResults.size()) ? tesseractResults[currentIndex] : "";
-		ofDrawBitmapStringHighlight("Tesseract:      " + tessText, margin, yCursor + 10);
-		yCursor += 25;
-
-		// --- Phase 3: show the access decision for this plate ---
-		if (currentIndex < (int)accessDecisions.size()) {
-			const AccessDecision & decision = accessDecisions[currentIndex];
-
+		if (currentIndex < (int)euAccessDecisions.size()) {
+			const AccessDecision & decision = euAccessDecisions[currentIndex];
 			if (decision.granted) {
-				ofSetColor(0, 255, 0);
-				ofDrawBitmapStringHighlight(
-					"ACCESS GRANTED  -  matched \"" + decision.matchedPlate
-						+ "\" (edit distance " + ofToString(decision.editDistance) + ")",
-					margin, yCursor + 10);
+				lines.push_back({ "ACCESS GRANTED  -  Welcome, " + decision.ownerName
+						+ "  (plate \"" + decision.matchedPlate
+						+ "\", edit distance " + ofToString(decision.editDistance) + ")",
+					ofColor::green });
 			} else {
-				ofSetColor(255, 60, 60);
 				std::string reason = decision.matchedPlate.empty()
 					? "no close match found"
 					: "closest was \"" + decision.matchedPlate + "\" (edit distance " + ofToString(decision.editDistance) + ")";
-				ofDrawBitmapStringHighlight("ACCESS DENIED  -  " + reason, margin, yCursor + 10);
+				lines.push_back({ "ACCESS DENIED  -  " + reason, ofColor(255, 60, 60) });
 			}
 		}
 	} else {
-		ofSetColor(255, 0, 0);
-		ofDrawBitmapString("No plate detected in this image", margin, yCursor + 20);
+		lines.push_back({ "No plate detected in this image", ofColor(255, 0, 0) });
 	}
+
+	plateDisplayer.draw(img, result, lines, margin, yCursor, availableWidth, ofGetHeight() - yCursor - margin);
 }
 
 //--------------------------------------------------------------
@@ -312,6 +297,7 @@ void ofApp::mouseDragged(int x, int y, int button) {
 
 //--------------------------------------------------------------
 void ofApp::mousePressed(int x, int y, int button) {
+	garageUI.handleMousePressed(x, y);
 }
 
 //--------------------------------------------------------------

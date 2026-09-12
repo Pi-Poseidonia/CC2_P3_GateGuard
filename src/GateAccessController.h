@@ -1,9 +1,9 @@
 #pragma once
 
-#include "ofMain.h"
 #include "AccessDecision.h"
-#include <vector>
+#include "ofMain.h"
 #include <string>
+#include <vector>
 
 // Decides whether an OCR'd plate string should be granted gate access. Matching is
 // fuzzy (edit-distance based) rather than exact, because OCR - even a mature engine
@@ -32,7 +32,13 @@ public:
 	int maxEditDistance = 2;
 
 private:
-	std::vector<std::string> authorizedPlates;
+	// Keeps the plate paired with its owner name, since the CSV's second column
+	// carries that information and we want to surface it once a match is found.
+	struct AuthorizedEntry {
+		std::string plate; // normalized (uppercased, no punctuation/spaces)
+		std::string ownerName; // as-is from the CSV, not normalized
+	};
+	std::vector<AuthorizedEntry> authorizedEntries;
 
 	// Standard Levenshtein (edit) distance: minimum number of single-character
 	// insertions, deletions, or substitutions to turn one string into the other.

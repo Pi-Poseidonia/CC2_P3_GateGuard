@@ -228,6 +228,7 @@
   <ItemGroup>
     <ClCompile Include="src\AccessLog.cpp" />
     <ClCompile Include="src\EUDetectionStrategy.cpp" />
+    <ClCompile Include="src\GarageUI.cpp" />
     <ClCompile Include="src\GateAccessController.cpp" />
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\ofApp.cpp" />
@@ -242,6 +243,7 @@
     <ClCompile Include="..\..\..\addons\ofxGui\src\ofxSliderGroup.cpp" />
     <ClCompile Include="..\..\..\addons\ofxGui\src\ofxToggle.cpp" />
     <ClCompile Include="src\Platedetector.cpp" />
+    <ClCompile Include="src\PlateDisplayer.cpp" />
     <ClCompile Include="src\Tesseractplatereader.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -250,6 +252,7 @@
     <ClInclude Include="src\AccessDecision.h" />
     <ClInclude Include="src\AccessLog.h" />
     <ClInclude Include="src\EUDetectionStrategy.h" />
+    <ClInclude Include="src\GarageUI.h" />
     <ClInclude Include="src\GateAccessController.h" />
     <ClInclude Include="src\ofApp.h" />
     <ClInclude Include="..\..\..\addons\ofxGui\src\ofxBaseGui.h" />
@@ -265,6 +268,7 @@
     <ClInclude Include="..\..\..\addons\ofxGui\src\ofxSliderGroup.h" />
     <ClInclude Include="..\..\..\addons\ofxGui\src\ofxToggle.h" />
     <ClInclude Include="src\Platedetector.h" />
+    <ClInclude Include="src\PlateDisplayer.h" />
     <ClInclude Include="src\Tesseractplatereader.h" />
   </ItemGroup>
   <ItemGroup>

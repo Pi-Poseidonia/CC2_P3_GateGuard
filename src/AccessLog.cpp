@@ -4,10 +4,11 @@ void AccessLog::record(const AccessDecision & decision) {
 	history.push_back(decision);
 
 	ofLogNotice("AccessLog") << "[" << decision.timestamp << "] "
-		<< (decision.granted ? "GRANTED" : "DENIED")
-		<< " - ocrText=\"" << decision.ocrText << "\""
-		<< " matchedPlate=\"" << decision.matchedPlate << "\""
-		<< " editDistance=" << decision.editDistance;
+							 << (decision.granted ? "GRANTED" : "DENIED")
+							 << " - ocrText=\"" << decision.ocrText << "\""
+							 << " matchedPlate=\"" << decision.matchedPlate << "\""
+							 << " ownerName=\"" << decision.ownerName << "\""
+							 << " editDistance=" << decision.editDistance;
 }
 
 const std::vector<AccessDecision> & AccessLog::getHistory() const {
