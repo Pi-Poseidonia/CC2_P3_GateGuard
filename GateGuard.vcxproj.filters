@@ -37,7 +37,7 @@
     <ClCompile Include="..\..\..\addons\ofxGui\src\ofxToggle.cpp">
       <Filter>addons\ofxGui\src</Filter>
     </ClCompile>
-    <ClCompile Include="src\IndianDetectionStrategy.cpp">
+	<ClCompile Include="src\IndianDetectionStrategy.cpp">
       <Filter>src</Filter>
     </ClCompile>
     <ClCompile Include="src\AccessLog.cpp">
@@ -62,6 +62,13 @@
       <Filter>src</Filter>
     </ClCompile>
     <ClCompile Include="StartScreen.cpp" />
+    <ClCompile Include="src\EUDetectionStrategy.cpp" />
+    <ClCompile Include="src\Platedetector.cpp" />
+    <ClCompile Include="src\Tesseractplatereader.cpp" />
+    <ClCompile Include="src\AccessLog.cpp" />
+    <ClCompile Include="src\GateAccessController.cpp" />
+    <ClCompile Include="src\PlateDisplayer.cpp" />
+    <ClCompile Include="src\GarageUI.cpp" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="src">
@@ -151,6 +158,19 @@
       <Filter>src</Filter>
     </ClInclude>
     <ClInclude Include="StartScreen.h" />
+    <ClInclude Include="src\EUDetectionStrategy.h" />
+    <ClInclude Include="PlateDetectionStrategy.h" />
+    <ClInclude Include="LicensePlate.h" />
+    <ClInclude Include="src\Platedetector.h" />
+    <ClInclude Include="src\Tesseractplatereader.h" />
+    <ClInclude Include="src\AccessDecision.h" />
+    <ClInclude Include="src\AccessLog.h" />
+    <ClInclude Include="src\GateAccessController.h" />
+    <ClInclude Include="src\PlateDisplayer.h" />
+    <ClInclude Include="src\GarageUI.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="icon.rc" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="bin\data\images\EU_DE.jpg" />

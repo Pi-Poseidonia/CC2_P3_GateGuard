@@ -99,9 +99,73 @@ static ofPixels trimStrayEdgeBlob(const ofPixels & input) {
 }
 
 //--------------------------------------------------------------
+void ofApp::processOneImage(const std::string & filename, PlateDetector & detector,
+	ofImage & outImage, LicensePlate & outResult,
+	std::string & outTesseractText, AccessDecision & outDecision, bool accessListReady) {
+
+	if (!outImage.load(filename)) {
+		ofLogError("ofApp") << "Could not load test image: " << filename;
+		return;
+	}
+	outImage.setImageType(OF_IMAGE_COLOR);
+
+	outResult = detector.process(outImage.getPixels());
+
+	if (!outResult.isValid) {
+		ofLogNotice("Detection") << "[" << filename << "] No plate detected.";
+		return;
+	}
+
+	ofLogNotice("Detection") << "[" << filename << "] Plate found at ("
+							 << outResult.boundingBox.x << ", " << outResult.boundingBox.y << ") size "
+							 << outResult.boundingBox.width << "x" << outResult.boundingBox.height
+							 << " customText=\"" << outResult.plateText << "\"";
+
+	// Run Tesseract on the detected plate crop, with any color strip trimmed off the
+	// left edge first (stripWidthPx is 0 for strategies with no such strip, e.g.
+	// Indian plates - trimAmount then naturally becomes 0, a no-op).
+	ofPixels platePixels = outResult.croppedPlate.getPixels();
+	int trimAmount = static_cast<int>(outResult.stripWidthPx * 1.15f);
+	trimAmount = std::min(trimAmount, static_cast<int>(platePixels.getWidth()) - 1);
+
+	ofPixels forOcr;
+	if (trimAmount > 0) {
+		platePixels.cropTo(forOcr, trimAmount, 0,
+			platePixels.getWidth() - trimAmount, platePixels.getHeight());
+	} else {
+		forOcr = platePixels;
+	}
+
+	forOcr = trimStrayEdgeBlob(forOcr);
+	forOcr = tightCropToInkWithPadding(forOcr, 5);
+
+	outTesseractText = tesseractReader.recognize(forOcr);
+	ofLogNotice("Tesseract") << "[" << filename << "] (trimmed " << trimAmount
+							 << "px strip) tesseractText=\"" << outTesseractText << "\"";
+
+	if (accessListReady) {
+		outDecision = accessController.evaluate(outTesseractText);
+		accessLog.record(outDecision);
+	}
+}
+
+//--------------------------------------------------------------
 void ofApp::setup() {
 
 	ofSetWindowTitle("PlateDetector - Multi-Region Testing (EU & India)");
+
+	// --- EU plate testing: multiple images, processed once at startup ---
+	testImageFilenames = {
+		"images/EU_DE1.jpg",
+		"images/EU-DE2.jpg",
+		"images/EU-DE3.jpg",
+		"images/I_HR26.jpg",
+		"images/I_RJ14.jpg",
+		"images/I_RJ19.jpg",
+		"images/I_TN87.jpg",
+		"images/I_MH01.jpg",
+		"images/I_MH20.jpg"
+	};
 
 	// --- Polymorphic Logging Initialization ---
 	// Enable openFrameworks log output
@@ -209,7 +273,6 @@ void ofApp::setup() {
 		}
 	}
 
-
 	// first image / log all decisions:
 	for (size_t i = 0; i < accessDecisions.size(); ++i) {
 		std::string plateText = (i < tesseractResults.size()) ? tesseractResults[i] : "UNKNOWN";
@@ -217,21 +280,20 @@ void ofApp::setup() {
 		for (auto & logger : loggers) {
 			logger->logAccess(plateText, accessDecisions[i].granted);
 		}
-
-		// --- Set detector back to starting mode ---
-		if (currentMode == MODE_EU) {
-			detector.setStrategy(euStrategy);
-		} else {
-			detector.setStrategy(indianStrategy);
-		}
-
-		ofLogNotice("ofApp") << "Loaded " << testImageFilenames.size() << " test image(s). "
-							 << "Use LEFT/RIGHT arrow keys to switch between them.";
 	}
-		startScreen.setActive(true);
-	
-}
 
+	// --- Set detector back to starting mode ---
+	if (currentMode == MODE_EU) {
+		detector.setStrategy(euStrategy);
+	} else {
+		detector.setStrategy(indianStrategy);
+	}
+
+	ofLogNotice("ofApp") << "Loaded " << testImageFilenames.size() << " test image(s). "
+						 << "Use LEFT/RIGHT arrow keys to switch between them.";
+
+	startScreen.setActive(true);
+}
 //--------------------------------------------------------------
 void ofApp::update() {
 
@@ -242,26 +304,46 @@ void ofApp::draw() {
 	ofBackground(30);
 	ofSetColor(255);
 
-	if (euImages.empty() || currentIndex >= euImages.size()) {
+	// 1. If the start screen is active, draw it exclusively and return early
+	if (startScreen.isActive()) {
+		startScreen.draw();
+		return;
+	}
+
+	// Safety check: ensure images are loaded properly
+	if (euImages.empty() || currentIndex >= (int)euImages.size()) {
 		ofDrawBitmapStringHighlight("No test images loaded.", 20, 30);
 		return;
+	}
+
+	if (currentIndex < 0) {
+		currentIndex = 0;
 	}
 
 	float margin = 15;
 	float availableWidth = ofGetWidth() - margin * 2;
 	float yCursor = 50;
 
-	// --- 1. Top Status Banner ---
+	// --- Top Status Banner ---
 	std::string modeStr = (currentMode == MODE_EU) ? "EU" : (currentMode == MODE_INDIAN ? "INDIAN" : "BOTH");
 	std::string header = "Keys: [1] EU | [2] Indian | [3] Both  -->  Mode: " + modeStr
 		+ " | Image " + ofToString(currentIndex + 1) + "/" + ofToString(euImages.size())
 		+ " (" + testImageFilenames[currentIndex] + ") [<- / ->]";
 	ofDrawBitmapStringHighlight(header, margin, 25, ofColor::black, ofColor::yellow);
 
-	// Extract filename string for database lookup test
-	std::string currentFilename = testImageFilenames[currentIndex];
+	// --- GarageUI Dashboard Integration ---
+	// Check if access was granted for the currently displayed image
+	bool gateIsOpen = (currentIndex < (int)accessDecisions.size()) && accessDecisions[currentIndex].granted;
 
-	// Get image and detection results (using indianResult single instance from ofApp.h)
+	// Render the visual gate status indicator panel (GATE OPEN / GATE CLOSED)
+	garageUI.drawGateStatus(gateIsOpen, margin, yCursor, 200, 40);
+
+	// Render the interactive strategy toggle UI buttons
+	garageUI.drawStrategyToggle({ "EU", "Indian" }, margin + 220, yCursor);
+	yCursor += 55;
+
+	// --- Image Rendering & Bounding Boxes ---
+	std::string currentFilename = testImageFilenames[currentIndex];
 	ofImage & img = euImages[currentIndex];
 	LicensePlate & euRes = euResults[currentIndex];
 	LicensePlate & inRes = indianResults[currentIndex];
@@ -272,7 +354,7 @@ void ofApp::draw() {
 		return;
 	}
 
-	// --- 2. Draw Original Image & Bounding Boxes ---
+	// Scale image proportionally to fit within window margins
 	float scale = availableWidth / img.getWidth();
 	float h = img.getHeight() * scale;
 	img.draw(margin, yCursor, availableWidth, h);
@@ -280,7 +362,7 @@ void ofApp::draw() {
 	ofNoFill();
 	ofSetLineWidth(3);
 
-	// EU Bounding Box (Blue)
+	// Render EU Bounding Box (Blue)
 	if ((currentMode == MODE_EU || currentMode == MODE_BOTH) && euRes.isValid) {
 		ofSetColor(0, 100, 255);
 		ofDrawRectangle(
@@ -291,7 +373,7 @@ void ofApp::draw() {
 		ofDrawBitmapString("EU Plate", margin + euRes.boundingBox.x * scale, yCursor + euRes.boundingBox.y * scale - 5);
 	}
 
-	// Indian Bounding Box (Green)
+	// Render Indian Bounding Box (Green)
 	if ((currentMode == MODE_INDIAN || currentMode == MODE_BOTH) && inRes.isValid) {
 		ofSetColor(0, 255, 0);
 		ofDrawRectangle(
@@ -303,14 +385,11 @@ void ofApp::draw() {
 	}
 
 	yCursor += h + margin;
-
-// --- Draw Binarized Crop & Access Control ---
 	ofSetLineWidth(1);
 
-	// Select active detection result (prefer Indian if valid, fallback to EU)
+	// --- Detection & Access Decision Results ---
 	LicensePlate & activePlate = inRes.isValid ? inRes : euRes;
 
-	// Only draw recognition results if a valid plate was found
 	if (activePlate.isValid) {
 		ofSetColor(0, 255, 0);
 		ofDrawBitmapStringHighlight("Custom matcher: " + activePlate.plateText, margin, yCursor + 10);
@@ -321,33 +400,23 @@ void ofApp::draw() {
 		ofDrawBitmapStringHighlight("Tesseract:      " + tessText, margin, yCursor + 10);
 		yCursor += 25;
 
-		// --- show the access decision for this plate ---
 		if (currentIndex < (int)accessDecisions.size()) {
 			const AccessDecision & decision = accessDecisions[currentIndex];
-
 			if (decision.granted) {
-				ofSetColor(0, 255, 0);
-				ofDrawBitmapStringHighlight(
-					"ACCESS GRANTED  -  matched \"" + decision.matchedPlate
-						+ "\" (edit distance " + ofToString(decision.editDistance) + ")",
-					margin, yCursor + 10);
+				ofDrawBitmapStringHighlight("ACCESS GRANTED - Welcome, " + decision.ownerName
+						+ " (plate \"" + decision.matchedPlate + "\")",
+					margin, yCursor + 10, ofColor::green, ofColor::black);
 			} else {
-				ofSetColor(255, 60, 60);
 				std::string reason = decision.matchedPlate.empty()
-					? "no cloBse match found"
+					? "no close match found"
 					: "closest was \"" + decision.matchedPlate + "\" (edit distance " + ofToString(decision.editDistance) + ")";
-				ofDrawBitmapStringHighlight("ACCESS DENIED  -  " + reason, margin, yCursor + 10);
+				ofDrawBitmapStringHighlight("ACCESS DENIED - " + reason, margin, yCursor + 10, ofColor::red, ofColor::white);
 			}
 		}
-		
 	} else {
-		ofSetColor(255, 0, 0);
 		ofDrawBitmapStringHighlight("No plate detected for current active mode.", margin, yCursor + 15, ofColor::red, ofColor::white);
 	}
-	//draw startscreen
-	startScreen.draw();
 }
-
 //--------------------------------------------------------------
 void ofApp::keyPressed(int key) {
 	std::cout << "KEYPRESSED" << std::endl;
@@ -409,7 +478,11 @@ void ofApp::mouseDragged(int x, int y, int button) {
 //--------------------------------------------------------------
 void ofApp::mousePressed(int x, int y, int button) {
 	if (startScreen.isActive()) {
+		// Forward click coordinates to the start screen UI
 		startScreen.mousePressed(x, y, button);
+	} else {
+		// Call from ofApp::mousePressed() with the click coordinates - updates GarageUI button states
+		garageUI.handleMousePressed(x, y);
 	}
 }
 

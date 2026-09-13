@@ -1,11 +1,11 @@
 #include "GateAccessController.h"
-#include <fstream>
-#include <sstream>
 #include <algorithm>
 #include <cctype>
+#include <fstream>
+#include <sstream>
 
 bool GateAccessController::loadAuthorizedPlates(const std::string & csvPath, bool skipHeaderRow) {
-	authorizedPlates.clear();
+	authorizedEntries.clear();
 
 	std::ifstream file(ofToDataPath(csvPath));
 	if (!file.is_open()) {
@@ -27,21 +27,25 @@ bool GateAccessController::loadAuthorizedPlates(const std::string & csvPath, boo
 			continue;
 		}
 
-		// Take the first comma-separated field as the plate number.
+		// First comma-separated field is the plate number, second is the owner name.
 		std::stringstream lineStream(line);
 		std::string plateField;
+		std::string ownerField;
 		std::getline(lineStream, plateField, ',');
+		std::getline(lineStream, ownerField); // rest of the line, so a name with a
+		// comma in it (unlikely here) still
+		// comes through mostly intact
 
-		std::string normalized = normalize(plateField);
-		if (!normalized.empty()) {
-			authorizedPlates.push_back(normalized);
+		std::string normalizedPlate = normalize(plateField);
+		if (!normalizedPlate.empty()) {
+			authorizedEntries.push_back({ normalizedPlate, ownerField });
 		}
 	}
 
-	ofLogNotice("GateAccessController") << "Loaded " << authorizedPlates.size()
-		<< " authorized plate(s) from '" << csvPath << "'.";
+	ofLogNotice("GateAccessController") << "Loaded " << authorizedEntries.size()
+										<< " authorized plate(s) from '" << csvPath << "'.";
 
-	return !authorizedPlates.empty();
+	return !authorizedEntries.empty();
 }
 
 AccessDecision GateAccessController::evaluate(const std::string & ocrText) {
@@ -51,26 +55,31 @@ AccessDecision GateAccessController::evaluate(const std::string & ocrText) {
 
 	std::string normalizedOcr = normalize(ocrText);
 
-	if (normalizedOcr.empty() || authorizedPlates.empty()) {
+	if (normalizedOcr.empty() || authorizedEntries.empty()) {
 		decision.granted = false;
 		return decision;
 	}
 
 	// Find the closest authorized plate by edit distance.
 	int bestDistance = -1;
-	std::string bestMatch;
+	const AuthorizedEntry * bestEntry = nullptr;
 
-	for (const std::string & plate : authorizedPlates) {
-		int distance = levenshteinDistance(normalizedOcr, plate);
+	for (const AuthorizedEntry & entry : authorizedEntries) {
+		int distance = levenshteinDistance(normalizedOcr, entry.plate);
 		if (bestDistance == -1 || distance < bestDistance) {
 			bestDistance = distance;
-			bestMatch = plate;
+			bestEntry = &entry;
 		}
 	}
 
-	decision.matchedPlate = bestMatch;
+	decision.matchedPlate = bestEntry->plate;
 	decision.editDistance = bestDistance;
 	decision.granted = (bestDistance <= maxEditDistance);
+
+	// Only surface the owner name when access is actually granted - showing a name
+	// tied to the "closest but rejected" plate on a denial would be misleading, since
+	// that plate wasn't confirmed as a real match.
+	decision.ownerName = decision.granted ? bestEntry->ownerName : "";
 
 	return decision;
 }
@@ -94,15 +103,17 @@ int GateAccessController::levenshteinDistance(const std::string & a, const std::
 	// Standard dynamic-programming edit-distance table.
 	std::vector<std::vector<int>> dp(lenA + 1, std::vector<int>(lenB + 1, 0));
 
-	for (size_t i = 0; i <= lenA; i++) dp[i][0] = static_cast<int>(i);
-	for (size_t j = 0; j <= lenB; j++) dp[0][j] = static_cast<int>(j);
+	for (size_t i = 0; i <= lenA; i++)
+		dp[i][0] = static_cast<int>(i);
+	for (size_t j = 0; j <= lenB; j++)
+		dp[0][j] = static_cast<int>(j);
 
 	for (size_t i = 1; i <= lenA; i++) {
 		for (size_t j = 1; j <= lenB; j++) {
 			int cost = (a[i - 1] == b[j - 1]) ? 0 : 1;
 			dp[i][j] = std::min({
-				dp[i - 1][j] + 1,       // deletion
-				dp[i][j - 1] + 1,       // insertion
+				dp[i - 1][j] + 1, // deletion
+				dp[i][j - 1] + 1, // insertion
 				dp[i - 1][j - 1] + cost // substitution
 			});
 		}
