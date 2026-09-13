@@ -11,7 +11,8 @@ TesseractPlateReader::~TesseractPlateReader() {
 	if (tessApi) {
 		tesseract::TessBaseAPI * api = static_cast<tesseract::TessBaseAPI *>(tessApi);
 		api->End();
-		delete api;
+		// delete api; // create heap corruption
+		tessApi = nullptr;
 	}
 }
 

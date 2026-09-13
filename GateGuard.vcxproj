@@ -214,12 +214,14 @@
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="ConsoleAccessLogger.cpp" />
+    <ClCompile Include="EmailSecurityAlert.cpp" />
     <ClCompile Include="src\AccessLog.cpp" />
     <ClCompile Include="src\EUDetectionStrategy.cpp" />
     <ClCompile Include="src\GateAccessController.cpp" />
+    <ClCompile Include="src\IndianDetectionStrategy.cpp" />
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\ofApp.cpp" />
-    <ClCompile Include="src\Platedetector.cpp" />
     <ClCompile Include="..\..\..\addons\ofxGui\src\ofxBaseGui.cpp" />
     <ClCompile Include="..\..\..\addons\ofxGui\src\ofxButton.cpp" />
     <ClCompile Include="..\..\..\addons\ofxGui\src\ofxColorPicker.cpp" />
@@ -232,17 +234,20 @@
     <ClCompile Include="..\..\..\addons\ofxGui\src\ofxToggle.cpp" />
     <ClCompile Include="src\Platedetector.cpp" />
     <ClCompile Include="src\Tesseractplatereader.cpp" />
+    <ClCompile Include="StartScreen.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="LicensePlate.h" />
-    <ClInclude Include="PlateDetectionStrategy.h" />
+    <ClInclude Include="AccessLogger.h" />
+    <ClInclude Include="ConsoleAccessLogger.h" />
+    <ClInclude Include="EmailSecurityAlert.h" />
     <ClInclude Include="src\AccessDecision.h" />
     <ClInclude Include="src\AccessLog.h" />
     <ClInclude Include="src\EUDetectionStrategy.h" />
     <ClInclude Include="src\GateAccessController.h" />
+    <ClInclude Include="src\IndianDetectionStrategy.h" />
+    <ClInclude Include="src\LicensePlate.h" />
     <ClInclude Include="src\ofApp.h" />
     <ClInclude Include="src\PlateDetectionStrategy.h" />
-    <ClInclude Include="src\Platedetector.h" />
     <ClInclude Include="..\..\..\addons\ofxGui\src\ofxBaseGui.h" />
     <ClInclude Include="..\..\..\addons\ofxGui\src\ofxButton.h" />
     <ClInclude Include="..\..\..\addons\ofxGui\src\ofxColorPicker.h" />
@@ -255,8 +260,8 @@
     <ClInclude Include="..\..\..\addons\ofxGui\src\ofxSlider.h" />
     <ClInclude Include="..\..\..\addons\ofxGui\src\ofxSliderGroup.h" />
     <ClInclude Include="..\..\..\addons\ofxGui\src\ofxToggle.h" />
-    <ClInclude Include="src\Platedetector.h" />
     <ClInclude Include="src\Tesseractplatereader.h" />
+    <ClInclude Include="StartScreen.h" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="$(OF_ROOT)\libs\openFrameworksCompiled\project\vs\openframeworksLib.vcxproj">

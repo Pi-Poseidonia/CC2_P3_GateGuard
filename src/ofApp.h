@@ -1,5 +1,6 @@
 	#pragma once
 
+	#include "StartScreen.h"
 	#include "AccessDecision.h"
 	#include "AccessLog.h"
 	#include "EUDetectionStrategy.h"
@@ -47,6 +48,10 @@
 		std::vector<std::shared_ptr<AccessLogger>> loggers;
 
 	private:
+		StartScreen startScreen;
+
+		// support method for processing and adding a single image
+		void processSingleImage(const std::string & filePath);
 
 		// --- Dynamic Test Mode ---
 		DetectionMode currentMode = MODE_INDIAN; // default to Indian mode; can be changed via key press

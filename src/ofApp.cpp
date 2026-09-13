@@ -101,7 +101,17 @@ static ofPixels trimStrayEdgeBlob(const ofPixels & input) {
 //--------------------------------------------------------------
 void ofApp::setup() {
 
-ofSetWindowTitle("PlateDetector - Multi-Region Testing (EU & India)");
+	ofSetWindowTitle("PlateDetector - Multi-Region Testing (EU & India)");
+
+	// --- Polymorphic Logging Initialization ---
+	// Enable openFrameworks log output
+	ofSetLogLevel(OF_LOG_NOTICE);
+
+	ofLogNotice("ofApp")
+		<< "Logging initialized";
+
+	loggers.push_back(std::make_shared<ConsoleAccessLogger>());
+	loggers.push_back(std::make_shared<EmailSecurityAlert>());
 
 	// --- Initialize Smart Pointers & Strategy ---
 	euStrategy = std::make_shared<EUDetectionStrategy>();
@@ -130,7 +140,7 @@ ofSetWindowTitle("PlateDetector - Multi-Region Testing (EU & India)");
 	// --- Load and process every test image up front ---
 	euImages.resize(testImageFilenames.size());
 	euResults.resize(testImageFilenames.size());
-	indianResults.resize(testImageFilenames.size()); // NEU: Speicher für Indische Ergebnisse reservieren
+	indianResults.resize(testImageFilenames.size());
 	tesseractResults.resize(testImageFilenames.size());
 	accessDecisions.resize(testImageFilenames.size());
 
@@ -199,9 +209,6 @@ ofSetWindowTitle("PlateDetector - Multi-Region Testing (EU & India)");
 		}
 	}
 
-	// --- Polymorphic Logging Initialization ---
-	loggers.push_back(std::make_shared<ConsoleAccessLogger>());
-	loggers.push_back(std::make_shared<EmailSecurityAlert>());
 
 	// first image / log all decisions:
 	for (size_t i = 0; i < accessDecisions.size(); ++i) {
@@ -210,24 +217,24 @@ ofSetWindowTitle("PlateDetector - Multi-Region Testing (EU & India)");
 		for (auto & logger : loggers) {
 			logger->logAccess(plateText, accessDecisions[i].granted);
 		}
+
+		// --- Set detector back to starting mode ---
+		if (currentMode == MODE_EU) {
+			detector.setStrategy(euStrategy);
+		} else {
+			detector.setStrategy(indianStrategy);
+		}
+
+		ofLogNotice("ofApp") << "Loaded " << testImageFilenames.size() << " test image(s). "
+							 << "Use LEFT/RIGHT arrow keys to switch between them.";
+	}
+		startScreen.setActive(true);
 	
 }
 
-	// --- Set detector back to starting mode ---
-	if (currentMode == MODE_EU) {
-		detector.setStrategy(euStrategy);
-	} else {
-		detector.setStrategy(indianStrategy);
-	}
-
-	ofLogNotice("ofApp") << "Loaded " << testImageFilenames.size() << " test image(s). "
-						 << "Use LEFT/RIGHT arrow keys to switch between them.";
-
-}
-
-
 //--------------------------------------------------------------
 void ofApp::update() {
+
 }
 
 //--------------------------------------------------------------
@@ -297,11 +304,16 @@ void ofApp::draw() {
 
 	yCursor += h + margin;
 
-	// --- 3. Draw Binarized Crop & Access Control ---
+// --- Draw Binarized Crop & Access Control ---
 	ofSetLineWidth(1);
 
+	// Select active detection result (prefer Indian if valid, fallback to EU)
+	LicensePlate & activePlate = inRes.isValid ? inRes : euRes;
+
+	// Only draw recognition results if a valid plate was found
+	if (activePlate.isValid) {
 		ofSetColor(0, 255, 0);
-		ofDrawBitmapStringHighlight("Custom matcher: " + result.plateText, margin, yCursor + 10);
+		ofDrawBitmapStringHighlight("Custom matcher: " + activePlate.plateText, margin, yCursor + 10);
 		yCursor += 25;
 
 		ofSetColor(255, 200, 0);
@@ -309,7 +321,7 @@ void ofApp::draw() {
 		ofDrawBitmapStringHighlight("Tesseract:      " + tessText, margin, yCursor + 10);
 		yCursor += 25;
 
-		// --- Phase 3: show the access decision for this plate ---
+		// --- show the access decision for this plate ---
 		if (currentIndex < (int)accessDecisions.size()) {
 			const AccessDecision & decision = accessDecisions[currentIndex];
 
@@ -326,15 +338,20 @@ void ofApp::draw() {
 					: "closest was \"" + decision.matchedPlate + "\" (edit distance " + ofToString(decision.editDistance) + ")";
 				ofDrawBitmapStringHighlight("ACCESS DENIED  -  " + reason, margin, yCursor + 10);
 			}
+		}
 		
 	} else {
 		ofSetColor(255, 0, 0);
 		ofDrawBitmapStringHighlight("No plate detected for current active mode.", margin, yCursor + 15, ofColor::red, ofColor::white);
 	}
+	//draw startscreen
+	startScreen.draw();
 }
 
 //--------------------------------------------------------------
 void ofApp::keyPressed(int key) {
+	std::cout << "KEYPRESSED" << std::endl;
+
 	// 1. Mode switching
 	if (key == '1') {
 		currentMode = MODE_EU;
@@ -360,14 +377,18 @@ void ofApp::keyPressed(int key) {
 		currentIndex = (currentIndex - 1 + euImages.size()) % euImages.size();
 	}
 
-	if (key == OF_KEY_RIGHT || key == OF_KEY_LEFT) {
+if (key == OF_KEY_RIGHT || key == OF_KEY_LEFT) {
+
 		if (currentIndex >= 0 && currentIndex < (int)accessDecisions.size()) {
+
 			std::string currentPlate = (currentIndex < (int)tesseractResults.size())
 				? tesseractResults[currentIndex]
 				: "UNKNOWN";
 
 			for (auto & logger : loggers) {
-				logger->logAccess(currentPlate, accessDecisions[currentIndex].granted);
+				logger->logAccess(
+					currentPlate,
+					accessDecisions[currentIndex].granted);
 			}
 		}
 	}
@@ -387,10 +408,14 @@ void ofApp::mouseDragged(int x, int y, int button) {
 
 //--------------------------------------------------------------
 void ofApp::mousePressed(int x, int y, int button) {
+	if (startScreen.isActive()) {
+		startScreen.mousePressed(x, y, button);
+	}
 }
 
 //--------------------------------------------------------------
 void ofApp::mouseReleased(int x, int y, int button) {
+
 }
 
 //--------------------------------------------------------------
