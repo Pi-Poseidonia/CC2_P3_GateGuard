@@ -55,6 +55,10 @@ private:
 	GarageUI garageUI;
 	PlateDisplayer plateDisplayer;
 
+	// --- Image Loading & Processing ---
+	void loadDefaultPipelineImages();
+	void loadSingleImageFromPath(const std::string & path);
+
 	// support method for processing and adding a single image
 	void processSingleImage(const std::string & filePath);
 	void processOneImage(const std::string & filename, PlateDetector & detector,

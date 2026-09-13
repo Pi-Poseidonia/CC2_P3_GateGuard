@@ -17,6 +17,15 @@ public:
 	bool loadDefaultTriggered = false;
 	bool importCustomTriggered = false;
 
+	//enables external code to check if a button was clicked
+	bool isLoadDefaultTriggered() const { return loadDefaultTriggered; }
+	bool isImportCustomTriggered() const { return importCustomTriggered; }
+
+	void resetTriggers() {
+		loadDefaultTriggered = false;
+		importCustomTriggered = false;
+	}
+
 private:
 	bool active = true;
 

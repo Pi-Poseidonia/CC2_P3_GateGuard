@@ -150,22 +150,14 @@ void ofApp::processOneImage(const std::string & filename, PlateDetector & detect
 }
 
 //--------------------------------------------------------------
+//--------------------------------------------------------------
 void ofApp::setup() {
 
 	ofSetWindowTitle("PlateDetector - Multi-Region Testing (EU & India)");
 
 	// --- EU plate testing: multiple images, processed once at startup ---
-	testImageFilenames = {
-		"images/EU_DE1.jpg",
-		"images/EU-DE2.jpg",
-		"images/EU-DE3.jpg",
-		"images/I_HR26.jpg",
-		"images/I_RJ14.jpg",
-		"images/I_RJ19.jpg",
-		"images/I_TN87.jpg",
-		"images/I_MH01.jpg",
-		"images/I_MH20.jpg"
-	};
+	// Note: Image path definitions and loading have been moved to loadDefaultPipelineImages()
+	// so images are only loaded on demand when the user selects Option 1.
 
 	// --- Polymorphic Logging Initialization ---
 	// Enable openFrameworks log output
@@ -201,87 +193,6 @@ void ofApp::setup() {
 							  << "check that bin/data/users.csv exists and has plates in its first column.";
 	}
 
-	// --- Load and process every test image up front ---
-	euImages.resize(testImageFilenames.size());
-	euResults.resize(testImageFilenames.size());
-	indianResults.resize(testImageFilenames.size());
-	tesseractResults.resize(testImageFilenames.size());
-	accessDecisions.resize(testImageFilenames.size());
-
-	for (size_t i = 0; i < testImageFilenames.size(); i++) {
-		ofImage & img = euImages[i];
-
-		// Ensure the image loads properly and is allocated in memory
-		if (img.load(testImageFilenames[i]) && img.isAllocated()) {
-			img.setImageType(OF_IMAGE_COLOR);
-
-			// 1. Run EU detection strategy
-			detector.setStrategy(euStrategy);
-			euResults[i] = detector.process(img.getPixels());
-
-			// 2. Run Indian detection strategy
-			detector.setStrategy(indianStrategy);
-			indianResults[i] = detector.process(img.getPixels());
-
-			// 3. Select active plate (Indian takes priority if valid, otherwise EU)
-			LicensePlate & activePlate = indianResults[i].isValid ? indianResults[i] : euResults[i];
-
-			if (activePlate.isValid) {
-				ofLogNotice("Detection") << "[" << testImageFilenames[i] << "] Plate found at ("
-										 << activePlate.boundingBox.x << ", " << activePlate.boundingBox.y << ") size "
-										 << activePlate.boundingBox.width << "x" << activePlate.boundingBox.height
-										 << " customText=\"" << activePlate.plateText << "\"";
-
-				// Ensure Tesseract is ready and the cropped plate is valid
-				if (tesseractReady && activePlate.croppedPlate.isAllocated() && activePlate.croppedPlate.getWidth() > 0) {
-					// .getPixels() is required if croppedPlate is an ofImage
-					ofPixels platePixels = activePlate.croppedPlate.getPixels();
-
-					int imgWidth = platePixels.getWidth();
-					int imgHeight = platePixels.getHeight();
-
-					// Trim side strips safely (0 for Indian plates since stripWidthPx is 0)
-					int trimAmount = std::max(0, static_cast<int>(activePlate.stripWidthPx * 1.15f));
-					trimAmount = std::min(trimAmount, imgWidth - 1);
-
-					ofPixels forOcr;
-					if (trimAmount > 0 && (imgWidth - trimAmount) > 0) {
-						platePixels.cropTo(forOcr, trimAmount, 0, imgWidth - trimAmount, imgHeight);
-					} else {
-						forOcr = platePixels;
-					}
-
-					if (forOcr.isAllocated() && forOcr.getWidth() > 0) {
-						forOcr = trimStrayEdgeBlob(forOcr);
-						forOcr = tightCropToInkWithPadding(forOcr, 5);
-
-						tesseractResults[i] = tesseractReader.recognize(forOcr);
-						ofLogNotice("Tesseract") << "[" << testImageFilenames[i] << "] tesseractText=\"" << tesseractResults[i] << "\"";
-
-						// Phase 3: Evaluate against authorized list
-						if (accessListReady) {
-							accessDecisions[i] = accessController.evaluate(tesseractResults[i]);
-							accessLog.record(accessDecisions[i]);
-						}
-					}
-				}
-			} else {
-				ofLogNotice("Detection") << "[" << testImageFilenames[i] << "] No plate detected.";
-			}
-		} else {
-			ofLogError("ofApp") << "Could not load test image: " << testImageFilenames[i];
-		}
-	}
-
-	// first image / log all decisions:
-	for (size_t i = 0; i < accessDecisions.size(); ++i) {
-		std::string plateText = (i < tesseractResults.size()) ? tesseractResults[i] : "UNKNOWN";
-
-		for (auto & logger : loggers) {
-			logger->logAccess(plateText, accessDecisions[i].granted);
-		}
-	}
-
 	// --- Set detector back to starting mode ---
 	if (currentMode == MODE_EU) {
 		detector.setStrategy(euStrategy);
@@ -289,16 +200,27 @@ void ofApp::setup() {
 		detector.setStrategy(indianStrategy);
 	}
 
-	ofLogNotice("ofApp") << "Loaded " << testImageFilenames.size() << " test image(s). "
-						 << "Use LEFT/RIGHT arrow keys to switch between them.";
-
 	startScreen.setActive(true);
 }
 //--------------------------------------------------------------
+// Handles state updates and responds to active StartScreen action triggers
 void ofApp::update() {
+	if (startScreen.isActive()) {
+		// OPTION 1: Load default test pipeline images
+		if (startScreen.isLoadDefaultTriggered()) {
+			startScreen.resetTriggers();
+			loadDefaultPipelineImages();
 
+			// Only dismiss StartScreen if test images were successfully loaded
+			if (!testImageFilenames.empty()) {
+				startScreen.setActive(false);
+			} else {
+				ofLogError("ofApp") << "Failed to load default test images. "
+									<< "Verify that bin/data/images/ contains the required files.";
+			}
+		}
+	}
 }
-
 //--------------------------------------------------------------
 void ofApp::draw() {
 	ofBackground(30);
@@ -476,16 +398,30 @@ void ofApp::mouseDragged(int x, int y, int button) {
 }
 
 //--------------------------------------------------------------
+//--------------------------------------------------------------
 void ofApp::mousePressed(int x, int y, int button) {
 	if (startScreen.isActive()) {
-		// Forward click coordinates to the start screen UI
+		// Pass mouse press event to StartScreen to update internal trigger states
 		startScreen.mousePressed(x, y, button);
-	} else {
-		// Call from ofApp::mousePressed() with the click coordinates - updates GarageUI button states
-		garageUI.handleMousePressed(x, y);
-	}
-}
 
+		// OPTION 2: Open native file picker directly from mouse event
+		if (startScreen.isImportCustomTriggered()) {
+			startScreen.resetTriggers();
+
+			// Open native system file dialog (Windows Explorer / macOS Finder)
+			ofFileDialogResult result = ofSystemLoadDialog("Select License Plate Image", false);
+
+			if (result.bSuccess) {
+				loadSingleImageFromPath(result.getPath());
+				startScreen.setActive(false); // Dismiss StartScreen on successful selection
+			}
+		}
+		return; // Prevent clicks from passing through to the dashboard below
+	}
+
+	// Normal UI interaction for the garage dashboard
+	garageUI.handleMousePressed(x, y);
+}
 //--------------------------------------------------------------
 void ofApp::mouseReleased(int x, int y, int button) {
 
@@ -508,5 +444,165 @@ void ofApp::gotMessage(ofMessage msg) {
 }
 
 //--------------------------------------------------------------
+// Handles drag-and-drop events for importing image files directly into the application
 void ofApp::dragEvent(ofDragInfo dragInfo) {
+	if (!dragInfo.files.empty()) {
+		for (const auto & fileEntry : dragInfo.files) {
+			// Convert std::filesystem::path to std::string explicitly
+			std::string filePath = fileEntry.string();
+
+			std::string ext = ofToLower(filePath.substr(filePath.find_last_of(".") + 1));
+			if (ext == "jpg" || ext == "jpeg" || ext == "png" || ext == "bmp") {
+				startScreen.setActive(false); // Dismiss StartScreen when dropping a file
+				loadSingleImageFromPath(filePath);
+			} else {
+				ofLogWarning("ofApp") << "Unsupported file format dropped: " << filePath;
+			}
+		}
+	}
+}
+
+//--------------------------------------------------------------
+// Imports a custom image file and runs the dual EU/Indian detection pipeline
+void ofApp::loadSingleImageFromPath(const std::string & path) {
+	ofImage newImg;
+	if (!newImg.load(path)) {
+		ofLogError("ofApp") << "Failed to load image from path: " << path;
+		return;
+	}
+
+	testImageFilenames.push_back(path);
+	euImages.push_back(newImg);
+
+	// Dynamic sizing for results vectors
+	euResults.resize(testImageFilenames.size());
+	indianResults.resize(testImageFilenames.size());
+	tesseractResults.resize(testImageFilenames.size());
+	accessDecisions.resize(testImageFilenames.size());
+
+	size_t newIdx = testImageFilenames.size() - 1;
+
+	// Run pipeline for newly added image
+	detector.setStrategy(euStrategy);
+	euResults[newIdx] = detector.process(newImg.getPixels());
+
+	detector.setStrategy(indianStrategy);
+	indianResults[newIdx] = detector.process(newImg.getPixels());
+
+	// Switch view to the newly imported image
+	currentIndex = (int)newIdx;
+	ofLogNotice("ofApp") << "Loaded and processed image: " << path;
+}
+
+//--------------------------------------------------------------
+// Loads the default set of hardcoded test images into the processing pipeline
+// in an earlier stage of the application, images were loaded directly in setup()
+// but now this function is called when the user selects Option 1 from the StartScreen.
+//--------------------------------------------------------------
+//--------------------------------------------------------------
+void ofApp::loadDefaultPipelineImages() {
+	// 1. Reset all image and result containers
+	testImageFilenames.clear();
+	euImages.clear();
+	euResults.clear();
+	indianResults.clear();
+	tesseractResults.clear();
+	accessDecisions.clear();
+
+	// 2. Define the default test image filenames
+	std::vector<std::string> relativePaths = {
+		"images/EU_DE1.jpg",
+		"images/EU-DE2.jpg",
+		"images/EU-DE3.jpg",
+		"images/I_HR26.jpg",
+		"images/I_RJ14.jpg",
+		"images/I_RJ19.jpg",
+		"images/I_TN87.jpg"
+	};
+
+	// 3. Resolve absolute paths inside bin/data/ and load images
+	for (const auto & relPath : relativePaths) {
+		std::string fullPath = ofToDataPath(relPath, true);
+		ofImage img;
+
+		if (img.load(fullPath) && img.isAllocated()) {
+			testImageFilenames.push_back(relPath);
+			euImages.push_back(img);
+			ofLogNotice("ofApp") << "Successfully loaded: " << fullPath;
+		} else {
+			ofLogError("ofApp") << "FAILED to load image at: " << fullPath;
+		}
+	}
+
+	size_t count = testImageFilenames.size();
+
+	// If no images were found, stop execution to prevent out-of-bounds crashes
+	if (count == 0) {
+		ofLogError("ofApp") << "No test images loaded! Verify that files exist in bin/data/images/";
+		return;
+	}
+
+	// 4. Resize all result vectors
+	euResults.resize(count);
+	indianResults.resize(count);
+	tesseractResults.resize(count);
+	accessDecisions.resize(count);
+
+	// 5. Process loaded images through pipelines
+	for (size_t i = 0; i < count; i++) {
+		ofImage & img = euImages[i];
+		img.setImageType(OF_IMAGE_COLOR);
+
+		// Run EU detection strategy
+		if (euStrategy) {
+			detector.setStrategy(euStrategy);
+			euResults[i] = detector.process(img.getPixels());
+		}
+
+		// Run Indian detection strategy
+		if (indianStrategy) {
+			detector.setStrategy(indianStrategy);
+			indianResults[i] = detector.process(img.getPixels());
+		}
+
+		// Select active plate
+		LicensePlate & activePlate = indianResults[i].isValid ? indianResults[i] : euResults[i];
+
+		if (activePlate.isValid && activePlate.croppedPlate.isAllocated() && activePlate.croppedPlate.getWidth() > 0) {
+			ofPixels platePixels = activePlate.croppedPlate.getPixels();
+
+			int imgWidth = platePixels.getWidth();
+			int imgHeight = platePixels.getHeight();
+
+			int trimAmount = std::max(0, static_cast<int>(activePlate.stripWidthPx * 1.15f));
+			trimAmount = std::min(trimAmount, imgWidth - 1);
+
+			ofPixels forOcr;
+			if (trimAmount > 0 && (imgWidth - trimAmount) > 0) {
+				platePixels.cropTo(forOcr, trimAmount, 0, imgWidth - trimAmount, imgHeight);
+			} else {
+				forOcr = platePixels;
+			}
+
+			if (forOcr.isAllocated() && forOcr.getWidth() > 0) {
+				forOcr = trimStrayEdgeBlob(forOcr);
+				forOcr = tightCropToInkWithPadding(forOcr, 5);
+
+				tesseractResults[i] = tesseractReader.recognize(forOcr);
+				accessDecisions[i] = accessController.evaluate(tesseractResults[i]);
+				accessLog.record(accessDecisions[i]);
+			}
+		}
+	}
+
+	// 6. Log decisions
+	for (size_t i = 0; i < accessDecisions.size(); ++i) {
+		std::string plateText = (i < tesseractResults.size()) ? tesseractResults[i] : "UNKNOWN";
+		for (auto & logger : loggers) {
+			logger->logAccess(plateText, accessDecisions[i].granted);
+		}
+	}
+
+	currentIndex = 0;
+	ofLogNotice("ofApp") << "Default test pipeline fully loaded with " << count << " image(s).";
 }
