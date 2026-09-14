@@ -64,15 +64,38 @@ ofPixels IndianDetectionStrategy::filterPlateColor(const ofPixels & input) {
 			bool isHighBrightness = (r > 140 && g > 140 && b > 140);
 			bool isLowSaturation = (std::abs(r - g) < 20 && std::abs(r - b) < 20 && std::abs(g - b) < 20);
 
-			// 2. Optional target for blue IND emblem on the left edge
+			// Simple horizontal gradient check.
+			// License plate characters create strong intensity changes.
+			int gray = (r + g + b) / 3;
+
+			int gradient = 0;
+
+			if (x < width - 1) {
+
+				int nextIndex = (y * width + (x + 1)) * numChannels;
+
+				int nextGray = (input[nextIndex]
+								   + input[nextIndex + 1]
+								   + input[nextIndex + 2])
+					/ 3;
+
+				gradient = std::abs(nextGray - gray);
+			}
+
+			bool hasStrongEdge = (gradient > 15);
+
+			// Optional target for blue IND emblem on the left edge
 			bool isIndBlue = (b > 90 && b > r + 15 && b > g + 10);
 
-			if ((isHighBrightness && isLowSaturation) || isIndBlue) {
-				output[y * width + x] = 255; // Valid plate candidate pixel: white
+			if ((isHighBrightness && isLowSaturation && hasStrongEdge)
+				|| isIndBlue) {
+
+				output[y * width + x] = 255;
 			} else {
-				output[y * width + x] = 0; // Background pixel: black
+				output[y * width + x] = 0;
 			}
 		}
+
 	}
 
 	return output;
@@ -90,124 +113,255 @@ ofPixels IndianDetectionStrategy::filterPlateColor(const ofPixels & input) {
 // contiguous 2D shape clusters and retains only the largest valid blob. This dramatically increases
 // robustness against complex backgrounds and glare while maintaining full architectural alignment
 // across all detection strategies.
-
 ofRectangle IndianDetectionStrategy::findPlateBoundingBox(const ofPixels & thresholdedImage) {
+
 	int width = thresholdedImage.getWidth();
+
 	int height = thresholdedImage.getHeight();
 
 	std::vector<bool> visited(width * height, false);
 
 	int bestMinX = 0, bestMinY = 0, bestMaxX = 0, bestMaxY = 0;
-	int bestPixelCount = 0;
+
+	float bestScore = -1.0f;
+
 	bool foundAny = false;
 
 	// Flood-fill (4-connectivity) to identify and measure each distinct contiguous region
+
 	for (int startY = 0; startY < height; startY++) {
+
 		for (int startX = 0; startX < width; startX++) {
+
 			int startIndex = startY * width + startX;
 
 			if (visited[startIndex] || thresholdedImage[startIndex] != 255) {
+
 				continue;
 			}
 
-			// BFS traversal stack to eliminate deep recursive calls on larger blobs
+			// BFS traversal stack
+
 			std::vector<ofPoint> stack;
+
 			stack.push_back(ofPoint(startX, startY));
+
 			visited[startIndex] = true;
 
-			int minX = startX, minY = startY, maxX = startX, maxY = startY;
+			int minX = startX, minY = startY, maxX = startX, maxY = startX;
+
 			int pixelCount = 0;
 
 			while (!stack.empty()) {
+
 				ofPoint p = stack.back();
+
 				stack.pop_back();
 
 				int px = static_cast<int>(p.x);
+
 				int py = static_cast<int>(p.y);
+
 				pixelCount++;
 
 				if (px < minX) minX = px;
+
 				if (px > maxX) maxX = px;
+
 				if (py < minY) minY = py;
+
 				if (py > maxY) maxY = py;
 
-				// 4-connected direction vectors
 				const int dx[4] = { -1, 1, 0, 0 };
+
 				const int dy[4] = { 0, 0, -1, 1 };
 
 				for (int dir = 0; dir < 4; dir++) {
+
 					int nx = px + dx[dir];
+
 					int ny = py + dy[dir];
 
 					if (nx < 0 || nx >= width || ny < 0 || ny >= height) {
+
 						continue;
 					}
 
 					int nIndex = ny * width + nx;
+
 					if (!visited[nIndex] && thresholdedImage[nIndex] == 255) {
+
 						visited[nIndex] = true;
+
 						stack.push_back(ofPoint(nx, ny));
 					}
 				}
 			}
 
-			// Retain only the largest contiguous candidate blob (filters out background glare noise)
-			if (pixelCount > bestPixelCount) {
-				bestPixelCount = pixelCount;
+			int boxWidth = maxX - minX;
+
+			int boxHeight = maxY - minY;
+
+			// 1. Minimum Size Check: Filter out small noise artifacts
+
+			if (boxWidth < 40 || boxHeight < 12) {
+
+				continue;
+			}
+
+			// 2. Aspect Ratio Validation: Standard Indian HSRP ratio (~4.0:1)
+
+			float aspect = static_cast<float>(boxWidth) / static_cast<float>(boxHeight);
+
+			if (aspect < 2.2f || aspect > 5.5f) {
+
+				continue;
+			}
+
+			// 3. Density / Text Check: Count black pixels (0) inside the bounding box.
+
+			// A real license plate contains text and borders. A car hood reflection is solid white (0% black pixels).
+
+			int interiorPixels = 0;
+
+			int blackPixelCount = 0;
+
+			for (int y = minY; y <= maxY; y++) {
+
+				for (int x = minX; x <= maxX; x++) {
+
+					interiorPixels++;
+
+					if (thresholdedImage[y * width + x] == 0) {
+
+						blackPixelCount++;
+					}
+				}
+			}
+
+			float blackDensity = static_cast<float>(blackPixelCount) / static_cast<float>(interiorPixels);
+
+			// Reject if there is virtually no text/border inside (like smooth car body paint)
+
+			if (blackDensity < 0.04f || blackDensity > 0.50f) {
+
+				continue;
+			}
+
+			// --- SCORING SYSTEM ---
+
+			float idealAspect = 4.1f;
+
+			float aspectDeviation = std::abs(aspect - idealAspect);
+
+			float score = 1.0f / (1.0f + aspectDeviation);
+
+			// Keep the candidate with the highest shape accuracy score
+
+			if (score > bestScore) {
+
+				bestScore = score;
+
 				bestMinX = minX;
+
 				bestMinY = minY;
+
 				bestMaxX = maxX;
+
 				bestMaxY = maxY;
+
 				foundAny = true;
 			}
 		}
 	}
 
 	if (!foundAny) {
+
 		return ofRectangle(0, 0, 0, 0);
 	}
 
-	int boxWidth = bestMaxX - bestMinX;
-	int boxHeight = bestMaxY - bestMinY;
+	int finalWidth = bestMaxX - bestMinX;
 
-	// 1. Minimum Size Check: Filter out small noise artifacts
-	if (boxWidth < 40 || boxHeight < 12) {
-		return ofRectangle(0, 0, 0, 0);
-	}
+	int finalHeight = bestMaxY - bestMinY;
 
-	// 2. Aspect Ratio Validation: Standard Indian HSRP ratio (~4.0:1)
-	float aspect = static_cast<float>(boxWidth) / static_cast<float>(boxHeight);
-	if (aspect < 2.2f || aspect > 5.5f) {
-		return ofRectangle(0, 0, 0, 0);
-	}
+	float finalAspect = static_cast<float>(finalWidth) / static_cast<float>(finalHeight);
 
 	ofLogNotice("IndianDetection") << "Detected HSRP Plate - X: " << bestMinX
-								   << " Y: " << bestMinY
-								   << " W: " << boxWidth
-								   << " H: " << boxHeight
-								   << " Aspect: " << aspect;
 
-	return ofRectangle(bestMinX, bestMinY, boxWidth, boxHeight);
+								   << " Y: " << bestMinY
+
+								   << " W: " << finalWidth
+
+								   << " H: " << finalHeight
+
+								   << " Aspect: " << finalAspect
+
+								   << " Score: " << bestScore;
+
+	ofRectangle detectedRect(bestMinX, bestMinY, finalWidth, finalHeight);
+
+	// Safety check against out-of-bounds cropping
+
+	if (detectedRect.x < 0 || detectedRect.y < 0 ||
+
+		detectedRect.x + detectedRect.width > width ||
+
+		detectedRect.y + detectedRect.height > height) {
+
+		return ofRectangle(0, 0, 0, 0);
+	}
+
+	return detectedRect;
 }
 
-// Stage 3: Binarize cropped ROI for OCR character extraction
+/**
+ * @brief Binarizes the extracted License Plate Region of Interest (ROI) for OCR processing.
+ * @param croppedROI The cropped color or grayscale image of the license plate candidate.
+ * @return ofPixels A high-contrast grayscale binarized image optimized for character segmentation.
+ */
 ofPixels IndianDetectionStrategy::binarizeROI(const ofPixels & croppedROI) {
-	ofPixels binarized;
-	binarized.allocate(croppedROI.getWidth(), croppedROI.getHeight(), OF_IMAGE_GRAYSCALE);
-
 	int width = croppedROI.getWidth();
 	int height = croppedROI.getHeight();
 	int numChannels = croppedROI.getNumChannels();
 
+	ofPixels grayscale;
+	grayscale.allocate(width, height, OF_IMAGE_GRAYSCALE);
+
+	// Convert cropped ROI to grayscale
 	for (int y = 0; y < height; y++) {
 		for (int x = 0; x < width; x++) {
 			int index = (y * width + x) * numChannels;
+			unsigned char gray = 0;
+			if (numChannels >= 3) {
+				unsigned char r = croppedROI[index];
+				unsigned char g = croppedROI[index + 1];
+				unsigned char b = croppedROI[index + 2];
+				gray = static_cast<unsigned char>(0.299f * r + 0.587f * g + 0.114f * b);
+			} else {
+				gray = croppedROI[index];
+			}
+			grayscale[y * width + x] = gray;
+		}
+	}
 
-			// Convert RGB to single luminance channel
-			unsigned char gray = (croppedROI[index] + croppedROI[index + 1] + croppedROI[index + 2]) / 3;
+	// Dynamic thresholding based on average pixel intensity within the license plate ROI
+	long long sum = 0;
+	int totalPixels = width * height;
+	if (totalPixels == 0) return grayscale;
 
-			// Static threshold tuned for dark characters on light background
-			binarized[y * width + x] = (gray < 115) ? 0 : 255;
+	for (int i = 0; i < totalPixels; i++) {
+		sum += grayscale[i];
+	}
+	unsigned char threshold = static_cast<unsigned char>(sum / totalPixels);
+
+	ofPixels binarized;
+	binarized.allocate(width, height, OF_IMAGE_GRAYSCALE);
+
+	for (int i = 0; i < totalPixels; i++) {
+		if (grayscale[i] < threshold) {
+			binarized[i] = 0; // Characters / Black
+		} else {
+			binarized[i] = 255; // Background / White
 		}
 	}
 

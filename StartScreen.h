@@ -3,7 +3,7 @@
 
 /**
  * UI Component that displays an introduction/welcome screen
- * with GUI buttons for mode selection and file imports.
+ * prompting the user to import a license plate image.
  */
 class StartScreen {
 public:
@@ -13,23 +13,17 @@ public:
 	bool isActive() const { return active; }
 	void setActive(bool state) { active = state; }
 
-	// Flags to communicate button clicks to ofApp
-	bool loadDefaultTriggered = false;
-	bool importCustomTriggered = false;
+	// Flag to communicate custom file selection trigger to ofApp
+	bool importTriggered = false;
+	bool isImportTriggered() const { return importTriggered; }
 
-	//enables external code to check if a button was clicked
-	bool isLoadDefaultTriggered() const { return loadDefaultTriggered; }
-	bool isImportCustomTriggered() const { return importCustomTriggered; }
-
-	void resetTriggers() {
-		loadDefaultTriggered = false;
-		importCustomTriggered = false;
+	void resetTrigger() {
+		importTriggered = false;
 	}
 
 private:
 	bool active = true;
 
-	// GUI Button bounds
-	ofRectangle btnDefault;
+	// Single central action button bounds
 	ofRectangle btnImport;
 };

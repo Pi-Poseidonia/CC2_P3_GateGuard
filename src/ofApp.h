@@ -56,7 +56,6 @@ private:
 	PlateDisplayer plateDisplayer;
 
 	// --- Image Loading & Processing ---
-	void loadDefaultPipelineImages();
 	void loadSingleImageFromPath(const std::string & path);
 
 	// support method for processing and adding a single image
