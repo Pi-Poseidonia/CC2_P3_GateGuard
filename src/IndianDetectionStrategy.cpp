@@ -64,38 +64,15 @@ ofPixels IndianDetectionStrategy::filterPlateColor(const ofPixels & input) {
 			bool isHighBrightness = (r > 140 && g > 140 && b > 140);
 			bool isLowSaturation = (std::abs(r - g) < 20 && std::abs(r - b) < 20 && std::abs(g - b) < 20);
 
-			// Simple horizontal gradient check.
-			// License plate characters create strong intensity changes.
-			int gray = (r + g + b) / 3;
-
-			int gradient = 0;
-
-			if (x < width - 1) {
-
-				int nextIndex = (y * width + (x + 1)) * numChannels;
-
-				int nextGray = (input[nextIndex]
-								   + input[nextIndex + 1]
-								   + input[nextIndex + 2])
-					/ 3;
-
-				gradient = std::abs(nextGray - gray);
-			}
-
-			bool hasStrongEdge = (gradient > 15);
-
-			// Optional target for blue IND emblem on the left edge
+			// 2. Optional target for blue IND emblem on the left edge
 			bool isIndBlue = (b > 90 && b > r + 15 && b > g + 10);
 
-			if ((isHighBrightness && isLowSaturation && hasStrongEdge)
-				|| isIndBlue) {
-
-				output[y * width + x] = 255;
+			if ((isHighBrightness && isLowSaturation) || isIndBlue) {
+				output[y * width + x] = 255; // Valid plate candidate pixel: white
 			} else {
-				output[y * width + x] = 0;
+				output[y * width + x] = 0; // Background pixel: black
 			}
 		}
-
 	}
 
 	return output;
