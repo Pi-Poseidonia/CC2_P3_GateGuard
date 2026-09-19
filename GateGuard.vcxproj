@@ -227,6 +227,8 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="src\AccessLog.cpp" />
+    <ClCompile Include="src\ConsoleAccessLogger.cpp" />
+    <ClCompile Include="src\EmailSecurityAlert.cpp" />
     <ClCompile Include="src\EUDetectionStrategy.cpp" />
     <ClCompile Include="src\GarageUI.cpp" />
     <ClCompile Include="src\GateAccessController.cpp" />
@@ -244,6 +246,7 @@
     <ClCompile Include="..\..\..\addons\ofxGui\src\ofxToggle.cpp" />
     <ClCompile Include="src\Platedetector.cpp" />
     <ClCompile Include="src\PlateDisplayer.cpp" />
+    <ClCompile Include="src\StartScreen.cpp" />
     <ClCompile Include="src\Tesseractplatereader.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -251,6 +254,9 @@
     <ClInclude Include="PlateDetectionStrategy.h" />
     <ClInclude Include="src\AccessDecision.h" />
     <ClInclude Include="src\AccessLog.h" />
+    <ClInclude Include="src\AccessLogger.h" />
+    <ClInclude Include="src\ConsoleAccessLogger.h" />
+    <ClInclude Include="src\EmailSecurityAlert.h" />
     <ClInclude Include="src\EUDetectionStrategy.h" />
     <ClInclude Include="src\GarageUI.h" />
     <ClInclude Include="src\GateAccessController.h" />
@@ -269,6 +275,7 @@
     <ClInclude Include="..\..\..\addons\ofxGui\src\ofxToggle.h" />
     <ClInclude Include="src\Platedetector.h" />
     <ClInclude Include="src\PlateDisplayer.h" />
+    <ClInclude Include="src\StartScreen.h" />
     <ClInclude Include="src\Tesseractplatereader.h" />
   </ItemGroup>
   <ItemGroup>
@@ -285,6 +292,8 @@
   <ItemGroup>
     <Image Include="bin\data\images\EU-DE2.jpg" />
     <Image Include="bin\data\images\EU-DE3.jpg" />
+    <Image Include="bin\data\images\EU-DE4.jpg" />
+    <Image Include="bin\data\images\EU-DE5.jpg" />
     <Image Include="bin\data\images\EU_DE.jpg" />
     <Image Include="bin\data\images\EU_DE1.jpg" />
     <Image Include="bin\data\images\I_HR26.jpg" />

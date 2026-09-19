@@ -44,6 +44,9 @@
     <ClCompile Include="src\GateAccessController.cpp" />
     <ClCompile Include="src\PlateDisplayer.cpp" />
     <ClCompile Include="src\GarageUI.cpp" />
+    <ClCompile Include="src\ConsoleAccessLogger.cpp" />
+    <ClCompile Include="src\EmailSecurityAlert.cpp" />
+    <ClCompile Include="src\StartScreen.cpp" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="src">
@@ -109,6 +112,10 @@
     <ClInclude Include="src\GateAccessController.h" />
     <ClInclude Include="src\PlateDisplayer.h" />
     <ClInclude Include="src\GarageUI.h" />
+    <ClInclude Include="src\AccessLogger.h" />
+    <ClInclude Include="src\ConsoleAccessLogger.h" />
+    <ClInclude Include="src\EmailSecurityAlert.h" />
+    <ClInclude Include="src\StartScreen.h" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="icon.rc" />
@@ -123,6 +130,8 @@
     <Image Include="bin\data\images\I_RJ14.jpg" />
     <Image Include="bin\data\images\I_RJ19.jpg" />
     <Image Include="bin\data\images\I_TN87.jpg" />
+    <Image Include="bin\data\images\EU-DE4.jpg" />
+    <Image Include="bin\data\images\EU-DE5.jpg" />
   </ItemGroup>
   <ItemGroup>
     <None Include="config.make" />

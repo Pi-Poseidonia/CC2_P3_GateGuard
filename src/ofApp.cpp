@@ -150,12 +150,28 @@ void ofApp::processOneImage(const std::string & filename, PlateDetector & detect
 }
 
 //--------------------------------------------------------------
+
 void ofApp::setup() {
 
-	ofSetWindowTitle("GateGuard - EU Plate Testing");
+	ofSetWindowTitle("PlateDetector - Multi-Region Testing (EU & India)");
 
-	// --- Load character templates once, shared across all test images ---
-	euDetector.loadTemplates("alphabet/");
+	// --- On-Demand Image Loading Architecture ---
+	// Startup image loading is intentionally bypassed to maintain a non-blocking initial state.
+	// Images are loaded dynamically via system file picker or drag-and-drop upon user interaction.
+
+	// --- Polymorphic Logging Initialization ---
+	// Enable openFrameworks log output
+	ofSetLogLevel(OF_LOG_NOTICE);
+
+	ofLogNotice("ofApp")
+		<< "Logging initialized";
+
+	loggers.push_back(std::make_shared<ConsoleAccessLogger>());
+	loggers.push_back(std::make_shared<EmailSecurityAlert>());
+
+	// --- Initialize Smart Pointers & Strategy ---
+	euStrategy = std::make_shared<EUDetectionStrategy>();
+	indianStrategy = std::make_shared<IndianDetectionStrategy>();
 
 	// --- Initialize Tesseract. Build the tessdata path from the exe's actual directory
 	// (ofFilePath::getCurrentExeDir()) rather than a bare relative "tessdata" string -
@@ -177,101 +193,182 @@ void ofApp::setup() {
 							  << "check that bin/data/users.csv exists and has plates in its first column.";
 	}
 
-	// --- EU images ---
-	euImages.resize(euImageFilenames.size());
-	euResults.resize(euImageFilenames.size());
-	euTesseractResults.resize(euImageFilenames.size());
-	euAccessDecisions.resize(euImageFilenames.size());
-
-	for (size_t i = 0; i < euImageFilenames.size(); i++) {
-		if (tesseractReady) {
-			processOneImage(euImageFilenames[i], euDetector, euImages[i], euResults[i],
-				euTesseractResults[i], euAccessDecisions[i], accessListReady);
-		}
+	// --- Set detector back to starting mode ---
+	if (currentMode == MODE_EU) {
+		detector.setStrategy(euStrategy);
+	} else {
+		detector.setStrategy(indianStrategy);
 	}
 
-	ofLogNotice("ofApp") << "Loaded " << euImageFilenames.size() << " test image(s). "
-						 << "Use LEFT/RIGHT arrow keys to switch between them.";
+	// Activate start screen gatekeeper overlay
+	startScreen.setActive(true);
 }
-
 //--------------------------------------------------------------
+// Handles state updates and responds to active StartScreen action triggers
 void ofApp::update() {
 }
-
 //--------------------------------------------------------------
 void ofApp::draw() {
 	ofBackground(30);
 	ofSetColor(255);
 
-	if (euImages.empty()) {
+	// 1. If the start screen is active, draw it exclusively and return early
+	if (startScreen.isActive()) {
+		startScreen.draw();
+		return;
+	}
+
+	// Safety check: ensure images are loaded properly
+	if (euImages.empty() || currentIndex >= (int)euImages.size()) {
 		ofDrawBitmapStringHighlight("No test images loaded.", 20, 30);
 		return;
 	}
-	if (currentIndex >= (int)euImages.size()) {
+
+	if (currentIndex < 0) {
 		currentIndex = 0;
 	}
 
 	float margin = 15;
 	float availableWidth = ofGetWidth() - margin * 2;
-	float yCursor = margin;
+	float yCursor = 50;
 
-	// --- Header: which image, navigation hint ---
-	std::string header = "Image " + ofToString(currentIndex + 1) + " / " + ofToString(euImages.size())
-		+ "   (" + euImageFilenames[currentIndex] + ")   [<- / -> to switch]";
-	ofDrawBitmapStringHighlight(header, margin, yCursor + 10);
-	yCursor += 25;
+	// --- Top Status Banner ---
+	std::string modeStr = (currentMode == MODE_EU) ? "EU" : (currentMode == MODE_INDIAN ? "INDIAN" : "BOTH");
+	std::string header = "Keys: [1] EU | [2] Indian | [3] Both  -->  Mode: " + modeStr
+		+ " | Image " + ofToString(currentIndex + 1) + "/" + ofToString(euImages.size())
+		+ " (" + testImageFilenames[currentIndex] + ") [<- / ->]";
+	ofDrawBitmapStringHighlight(header, margin, 25, ofColor::black, ofColor::yellow);
 
-	// --- Phase 4 dashboard: gate status + strategy toggle, side by side ---
-	bool gateIsOpen = (currentIndex < (int)euAccessDecisions.size()) && euAccessDecisions[currentIndex].granted;
+	// --- GarageUI Dashboard Integration ---
+	// Check if access was granted for the currently displayed image
+	bool gateIsOpen = (currentIndex < (int)accessDecisions.size()) && accessDecisions[currentIndex].granted;
+
+	// Render the visual gate status indicator panel (GATE OPEN / GATE CLOSED)
 	garageUI.drawGateStatus(gateIsOpen, margin, yCursor, 200, 40);
 
-	// NOTE: only "EU" is functionally wired up - IndianDetectionStrategy isn't part
-	// of this branch (see header comment). The "Indian" button is shown/clickable
-	// so the toggle UI is ready, but selecting it currently has no effect.
+	// Render the interactive strategy toggle UI buttons
 	garageUI.drawStrategyToggle({ "EU", "Indian" }, margin + 220, yCursor);
 	yCursor += 55;
 
-	// --- Per-plate visual pipeline, delegated to PlateDisplayer ---
+	// --- Image Rendering & Bounding Boxes ---
+	std::string currentFilename = testImageFilenames[currentIndex];
 	ofImage & img = euImages[currentIndex];
-	LicensePlate & result = euResults[currentIndex];
+	LicensePlate & euRes = euResults[currentIndex];
+	LicensePlate & inRes = indianResults[currentIndex];
 
 	if (!img.isAllocated()) {
 		ofSetColor(255, 0, 0);
-		ofDrawBitmapString("Failed to load this image - check the filename/path.", margin, yCursor + 20);
+		ofDrawBitmapString("Failed to load image: " + currentFilename, margin, yCursor + 20);
 		return;
 	}
 
-	std::vector<DisplayLine> lines;
+	// --- Height-budget-aware scaling: shrink the image (preserving aspect ratio) if
+	// its natural width-fit height would overflow the remaining window space. Fixes a
+	// regression where a tall source photo could push the crop thumbnail and text
+	// lines off-screen entirely (seen earlier in testing on a full car-rear photo). ---
+	float naturalImageHeight = img.getHeight() * (availableWidth / img.getWidth());
+	float estimatedTextHeight = 90.0f; // ~3 text lines + the crop thumbnail below
+	float imageBudget = (ofGetHeight() - yCursor - margin) - estimatedTextHeight;
+	float imageScaleFactor = 1.0f;
+	if (imageBudget > 0 && naturalImageHeight > imageBudget) {
+		imageScaleFactor = imageBudget / naturalImageHeight;
+	}
+	float drawWidth = availableWidth * imageScaleFactor;
 
-	if (result.isValid) {
-		lines.push_back({ "Custom matcher: " + result.plateText, ofColor::green });
+	// Scale image proportionally to fit within window margins
+	float scale = drawWidth / img.getWidth();
+	float h = img.getHeight() * scale;
+	img.draw(margin, yCursor, drawWidth, h);
 
-		std::string tessText = (currentIndex < (int)euTesseractResults.size()) ? euTesseractResults[currentIndex] : "";
-		lines.push_back({ "Tesseract:      " + tessText, ofColor(255, 200, 0) });
+	ofNoFill();
+	ofSetLineWidth(3);
 
-		if (currentIndex < (int)euAccessDecisions.size()) {
-			const AccessDecision & decision = euAccessDecisions[currentIndex];
+	// Render EU Bounding Box (Blue)
+	if ((currentMode == MODE_EU || currentMode == MODE_BOTH) && euRes.isValid) {
+		ofSetColor(0, 100, 255);
+		ofDrawRectangle(
+			margin + euRes.boundingBox.x * scale,
+			yCursor + euRes.boundingBox.y * scale,
+			euRes.boundingBox.width * scale,
+			euRes.boundingBox.height * scale);
+		ofDrawBitmapString("EU Plate", margin + euRes.boundingBox.x * scale, yCursor + euRes.boundingBox.y * scale - 5);
+	}
+
+	// Render Indian Bounding Box (Green)
+	if ((currentMode == MODE_INDIAN || currentMode == MODE_BOTH) && inRes.isValid) {
+		ofSetColor(0, 255, 0);
+		ofDrawRectangle(
+			margin + inRes.boundingBox.x * scale,
+			yCursor + inRes.boundingBox.y * scale,
+			inRes.boundingBox.width * scale,
+			inRes.boundingBox.height * scale);
+		ofDrawBitmapString("Indian HSRP", margin + inRes.boundingBox.x * scale, yCursor + inRes.boundingBox.y * scale - 5);
+	}
+
+	yCursor += h + margin;
+	ofSetLineWidth(1);
+
+	// --- Detection & Access Decision Results ---
+	LicensePlate & activePlate = inRes.isValid ? inRes : euRes;
+
+	// --- Restored: intermediate CV step thumbnail (binarized/cropped plate) - was
+	// present in the EU-branch PlateDisplayer version but missing from this rewrite;
+	// this is an explicit Phase 3 deliverable ("display intermediate CV step
+	// thumbnails"), so it's added back here rather than left out for the demo. ---
+	if (activePlate.isValid && activePlate.croppedPlate.isAllocated()) {
+		ofSetColor(255);
+		float cropScale = drawWidth / activePlate.croppedPlate.getWidth();
+		float cropHeight = activePlate.croppedPlate.getHeight() * cropScale;
+		activePlate.croppedPlate.draw(margin, yCursor, drawWidth, cropHeight);
+		yCursor += cropHeight + margin;
+	}
+
+	if (activePlate.isValid) {
+		ofSetColor(0, 255, 0);
+		ofDrawBitmapStringHighlight("Custom matcher: " + activePlate.plateText, margin, yCursor + 10);
+		yCursor += 25;
+
+		ofSetColor(255, 200, 0);
+		std::string tessText = (currentIndex < (int)tesseractResults.size()) ? tesseractResults[currentIndex] : "";
+		ofDrawBitmapStringHighlight("Tesseract:      " + tessText, margin, yCursor + 10);
+		yCursor += 25;
+
+		if (currentIndex < (int)accessDecisions.size()) {
+			const AccessDecision & decision = accessDecisions[currentIndex];
 			if (decision.granted) {
-				lines.push_back({ "ACCESS GRANTED  -  Welcome, " + decision.ownerName
-						+ "  (plate \"" + decision.matchedPlate
-						+ "\", edit distance " + ofToString(decision.editDistance) + ")",
-					ofColor::green });
+				ofDrawBitmapStringHighlight("ACCESS GRANTED - Welcome, " + decision.ownerName
+						+ " (plate \"" + decision.matchedPlate + "\")",
+					margin, yCursor + 10, ofColor::green, ofColor::black);
 			} else {
 				std::string reason = decision.matchedPlate.empty()
 					? "no close match found"
 					: "closest was \"" + decision.matchedPlate + "\" (edit distance " + ofToString(decision.editDistance) + ")";
-				lines.push_back({ "ACCESS DENIED  -  " + reason, ofColor(255, 60, 60) });
+				ofDrawBitmapStringHighlight("ACCESS DENIED - " + reason, margin, yCursor + 10, ofColor::red, ofColor::white);
 			}
 		}
 	} else {
-		lines.push_back({ "No plate detected in this image", ofColor(255, 0, 0) });
+		ofDrawBitmapStringHighlight("No plate detected for current active mode.", margin, yCursor + 15, ofColor::red, ofColor::white);
 	}
-
-	plateDisplayer.draw(img, result, lines, margin, yCursor, availableWidth, ofGetHeight() - yCursor - margin);
 }
-
 //--------------------------------------------------------------
 void ofApp::keyPressed(int key) {
+	std::cout << "KEYPRESSED" << std::endl;
+
+	// 1. Mode switching
+	if (key == '1') {
+		currentMode = MODE_EU;
+		if (euStrategy) detector.setStrategy(euStrategy);
+		ofLogNotice("ofApp") << "Switched to MODE_EU";
+	} else if (key == '2') {
+		currentMode = MODE_INDIAN;
+		if (indianStrategy) detector.setStrategy(indianStrategy);
+		ofLogNotice("ofApp") << "Switched to MODE_INDIAN";
+	} else if (key == '3') {
+		currentMode = MODE_BOTH;
+		ofLogNotice("ofApp") << "Switched to MODE_BOTH";
+	}
+
+	// 2. Image navigation
 	if (euImages.empty()) {
 		return;
 	}
@@ -280,6 +377,22 @@ void ofApp::keyPressed(int key) {
 		currentIndex = (currentIndex + 1) % euImages.size();
 	} else if (key == OF_KEY_LEFT) {
 		currentIndex = (currentIndex - 1 + euImages.size()) % euImages.size();
+	}
+
+	if (key == OF_KEY_RIGHT || key == OF_KEY_LEFT) {
+
+		if (currentIndex >= 0 && currentIndex < (int)accessDecisions.size()) {
+
+			std::string currentPlate = (currentIndex < (int)tesseractResults.size())
+				? tesseractResults[currentIndex]
+				: "UNKNOWN";
+
+			for (auto & logger : loggers) {
+				logger->logAccess(
+					currentPlate,
+					accessDecisions[currentIndex].granted);
+			}
+		}
 	}
 }
 
@@ -296,10 +409,26 @@ void ofApp::mouseDragged(int x, int y, int button) {
 }
 
 //--------------------------------------------------------------
+//--------------------------------------------------------------
 void ofApp::mousePressed(int x, int y, int button) {
+	if (startScreen.isActive()) {
+		startScreen.mousePressed(x, y, button);
+
+		// Uses the new single import trigger instead of the old default/custom options
+		if (startScreen.isImportTriggered()) {
+			startScreen.resetTrigger();
+
+			ofFileDialogResult result = ofSystemLoadDialog("Select License Plate Image", false);
+			if (result.bSuccess) {
+				startScreen.setActive(false);
+				loadSingleImageFromPath(result.getPath());
+			}
+		}
+		return;
+	}
+
 	garageUI.handleMousePressed(x, y);
 }
-
 //--------------------------------------------------------------
 void ofApp::mouseReleased(int x, int y, int button) {
 }
@@ -321,5 +450,85 @@ void ofApp::gotMessage(ofMessage msg) {
 }
 
 //--------------------------------------------------------------
+// Handles drag-and-drop events for importing image files directly into the application
 void ofApp::dragEvent(ofDragInfo dragInfo) {
+	if (dragInfo.files.size() > 0) {
+		// Dismiss the start screen gatekeeper if it's still active
+		if (startScreen.isActive()) {
+			startScreen.setActive(false);
+		}
+		// Load and process the dropped image instantly (works anytime in dashboard too)
+		loadSingleImageFromPath(dragInfo.files[0].string());
+	}
 }
+
+//--------------------------------------------------------------
+// Imports a custom image file and runs the dual EU/Indian detection pipeline + OCR
+void ofApp::loadSingleImageFromPath(const std::string & path) {
+	ofImage newImg;
+	if (!newImg.load(path)) {
+		ofLogError("ofApp") << "Failed to load image from path: " << path;
+		return;
+	}
+
+	testImageFilenames.push_back(path);
+	euImages.push_back(newImg);
+
+	// Dynamic sizing for results vectors
+	euResults.resize(testImageFilenames.size());
+	indianResults.resize(testImageFilenames.size());
+	tesseractResults.resize(testImageFilenames.size());
+	accessDecisions.resize(testImageFilenames.size());
+
+	size_t newIdx = testImageFilenames.size() - 1;
+
+	// Run pipeline for newly added image
+	if (euStrategy) {
+		detector.setStrategy(euStrategy);
+		euResults[newIdx] = detector.process(newImg.getPixels());
+	}
+
+	if (indianStrategy) {
+		detector.setStrategy(indianStrategy);
+		indianResults[newIdx] = detector.process(newImg.getPixels());
+	}
+
+	// --- OCR & Access Control Integration ---
+	LicensePlate & activePlate = indianResults[newIdx].isValid ? indianResults[newIdx] : euResults[newIdx];
+
+	if (activePlate.isValid && activePlate.croppedPlate.isAllocated() && activePlate.croppedPlate.getWidth() > 0) {
+		ofPixels platePixels = activePlate.croppedPlate.getPixels();
+
+		int imgWidth = platePixels.getWidth();
+		int imgHeight = platePixels.getHeight();
+
+		int trimAmount = std::max(0, static_cast<int>(activePlate.stripWidthPx * 1.15f));
+		trimAmount = std::min(trimAmount, imgWidth - 1);
+
+		ofPixels forOcr;
+		if (trimAmount > 0 && (imgWidth - trimAmount) > 0) {
+			platePixels.cropTo(forOcr, trimAmount, 0, imgWidth - trimAmount, imgHeight);
+		} else {
+			forOcr = platePixels;
+		}
+
+		if (forOcr.isAllocated() && forOcr.getWidth() > 0) {
+			forOcr = trimStrayEdgeBlob(forOcr);
+			forOcr = tightCropToInkWithPadding(forOcr, 5);
+
+			tesseractResults[newIdx] = tesseractReader.recognize(forOcr);
+			accessDecisions[newIdx] = accessController.evaluate(tesseractResults[newIdx]);
+			accessLog.record(accessDecisions[newIdx]);
+
+			for (auto & logger : loggers) {
+				logger->logAccess(tesseractResults[newIdx], accessDecisions[newIdx].granted);
+			}
+		}
+	}
+
+	// Switch view to the newly imported image
+	currentIndex = (int)newIdx;
+	ofLogNotice("ofApp") << "Loaded, processed and evaluated image: " << path;
+}
+
+//--------------------------------------------------------------
