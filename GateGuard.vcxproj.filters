@@ -37,6 +37,31 @@
     <ClCompile Include="..\..\..\addons\ofxGui\src\ofxToggle.cpp">
       <Filter>addons\ofxGui\src</Filter>
     </ClCompile>
+	<ClCompile Include="src\IndianDetectionStrategy.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\AccessLog.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\EUDetectionStrategy.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\GateAccessController.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Platedetector.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Tesseractplatereader.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="ConsoleAccessLogger.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="EmailSecurityAlert.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="StartScreen.cpp" />
     <ClCompile Include="src\EUDetectionStrategy.cpp" />
     <ClCompile Include="src\Platedetector.cpp" />
     <ClCompile Include="src\Tesseractplatereader.cpp" />
@@ -102,6 +127,40 @@
     <ClInclude Include="..\..\..\addons\ofxGui\src\ofxToggle.h">
       <Filter>addons\ofxGui\src</Filter>
     </ClInclude>
+    <ClInclude Include="src\PlateDetectionStrategy.h">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\IndianDetectionStrategy.h">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\LicensePlate.h">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\AccessDecision.h">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\AccessLog.h">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\EUDetectionStrategy.h">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\GateAccessController.h">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Tesseractplatereader.h">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="AccessLogger.h">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="ConsoleAccessLogger.h">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="EmailSecurityAlert.h">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="StartScreen.h" />
     <ClInclude Include="src\EUDetectionStrategy.h" />
     <ClInclude Include="PlateDetectionStrategy.h" />
     <ClInclude Include="LicensePlate.h" />
@@ -134,8 +193,8 @@
     <Image Include="bin\data\images\EU-DE5.jpg" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="config.make" />
     <None Include="README.md" />
     <None Include="bin\tessdata\eng.traineddata" />
+    <None Include="config.make" />
   </ItemGroup>
 </Project>

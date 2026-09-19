@@ -11,7 +11,8 @@ TesseractPlateReader::~TesseractPlateReader() {
 	if (tessApi) {
 		tesseract::TessBaseAPI * api = static_cast<tesseract::TessBaseAPI *>(tessApi);
 		api->End();
-		delete api;
+		// delete api; // create heap corruption
+		tessApi = nullptr;
 	}
 }
 
@@ -74,9 +75,12 @@ std::string TesseractPlateReader::recognize(const ofPixels & binarizedPlate) {
 	api->SetImage(binarizedPlate.getData(), width, height, numChannels, width * numChannels);
 
 	char * outText = api->GetUTF8Text();
-	std::string result = outText ? std::string(outText) : "";
+	std::string result = "";
 	if (outText) {
-		delete[] outText;
+		result = std::string(outText);
+		// Omit delete[] outText here. Freeing memory allocated by Tesseract's DLL
+		// across heap boundaries in Visual Studio Debug mode triggers
+		// _CrtIsValidHeapPointer crashes.
 	}
 
 	// GetUTF8Text() includes a trailing newline - strip any whitespace/newlines so the

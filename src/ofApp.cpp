@@ -409,7 +409,6 @@ void ofApp::mouseDragged(int x, int y, int button) {
 }
 
 //--------------------------------------------------------------
-//--------------------------------------------------------------
 void ofApp::mousePressed(int x, int y, int button) {
 	if (startScreen.isActive()) {
 		startScreen.mousePressed(x, y, button);
@@ -530,5 +529,3 @@ void ofApp::loadSingleImageFromPath(const std::string & path) {
 	currentIndex = (int)newIdx;
 	ofLogNotice("ofApp") << "Loaded, processed and evaluated image: " << path;
 }
-
-//--------------------------------------------------------------

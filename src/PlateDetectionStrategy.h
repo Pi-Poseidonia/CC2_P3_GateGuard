@@ -1,4 +1,5 @@
 #pragma once
+
 #include "LicensePlate.h"
 #include "ofMain.h"
 
@@ -7,6 +8,6 @@ class PlateDetectionStrategy {
 public:
 	virtual ~PlateDetectionStrategy() = default;
 
-	//pure virturell methode.all initialized mestragtegies must implement this function. 
+	//pure virtual method. all initialized strategies must implement this function.
 	virtual LicensePlate detect(const ofPixels & input) = 0;
 };
