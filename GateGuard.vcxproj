@@ -237,7 +237,6 @@
     <ClCompile Include="src\PlateDisplayer.cpp" />
     <ClCompile Include="src\StartScreen.cpp" />
     <ClCompile Include="src\Tesseractplatereader.cpp" />
-    <ClCompile Include="StartScreen.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\AccessDecision.h" />
@@ -268,7 +267,6 @@
     <ClInclude Include="src\PlateDisplayer.h" />
     <ClInclude Include="src\StartScreen.h" />
     <ClInclude Include="src\Tesseractplatereader.h" />
-    <ClInclude Include="StartScreen.h" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="$(OF_ROOT)\libs\openFrameworksCompiled\project\vs\openframeworksLib.vcxproj">
