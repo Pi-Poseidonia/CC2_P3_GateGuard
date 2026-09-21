@@ -214,8 +214,6 @@
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="ConsoleAccessLogger.cpp" />
-    <ClCompile Include="EmailSecurityAlert.cpp" />
     <ClCompile Include="src\AccessLog.cpp" />
     <ClCompile Include="src\ConsoleAccessLogger.cpp" />
     <ClCompile Include="src\EmailSecurityAlert.cpp" />
@@ -242,9 +240,6 @@
     <ClCompile Include="StartScreen.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="AccessLogger.h" />
-    <ClInclude Include="ConsoleAccessLogger.h" />
-    <ClInclude Include="EmailSecurityAlert.h" />
     <ClInclude Include="src\AccessDecision.h" />
     <ClInclude Include="src\AccessLog.h" />
     <ClInclude Include="src\AccessLogger.h" />
@@ -288,12 +283,15 @@
     <Image Include="bin\data\images\EU_DE.jpg" />
     <Image Include="bin\data\images\EU_DE1.jpg" />
     <Image Include="bin\data\images\I_HR26.jpg" />
+    <Image Include="bin\data\images\I_MH01.jpg" />
+    <Image Include="bin\data\images\I_MH20.jpg" />
     <Image Include="bin\data\images\I_MH74.jpg" />
     <Image Include="bin\data\images\I_RJ14.jpg" />
     <Image Include="bin\data\images\I_RJ19.jpg" />
     <Image Include="bin\data\images\I_TN87.jpg" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="bin\data\users.csv" />
     <None Include="bin\tessdata\eng.traineddata" />
     <None Include="config.make" />
     <None Include="README.md" />

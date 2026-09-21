@@ -37,7 +37,7 @@
     <ClCompile Include="..\..\..\addons\ofxGui\src\ofxToggle.cpp">
       <Filter>addons\ofxGui\src</Filter>
     </ClCompile>
-	<ClCompile Include="src\IndianDetectionStrategy.cpp">
+    <ClCompile Include="src\IndianDetectionStrategy.cpp">
       <Filter>src</Filter>
     </ClCompile>
     <ClCompile Include="src\AccessLog.cpp">
@@ -53,12 +53,6 @@
       <Filter>src</Filter>
     </ClCompile>
     <ClCompile Include="src\Tesseractplatereader.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="ConsoleAccessLogger.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="EmailSecurityAlert.cpp">
       <Filter>src</Filter>
     </ClCompile>
     <ClCompile Include="StartScreen.cpp" />
@@ -151,19 +145,8 @@
     <ClInclude Include="src\Tesseractplatereader.h">
       <Filter>src</Filter>
     </ClInclude>
-    <ClInclude Include="AccessLogger.h">
-      <Filter>src</Filter>
-    </ClInclude>
-    <ClInclude Include="ConsoleAccessLogger.h">
-      <Filter>src</Filter>
-    </ClInclude>
-    <ClInclude Include="EmailSecurityAlert.h">
-      <Filter>src</Filter>
-    </ClInclude>
     <ClInclude Include="StartScreen.h" />
     <ClInclude Include="src\EUDetectionStrategy.h" />
-    <ClInclude Include="PlateDetectionStrategy.h" />
-    <ClInclude Include="LicensePlate.h" />
     <ClInclude Include="src\Platedetector.h" />
     <ClInclude Include="src\Tesseractplatereader.h" />
     <ClInclude Include="src\AccessDecision.h" />
@@ -177,9 +160,6 @@
     <ClInclude Include="src\StartScreen.h" />
   </ItemGroup>
   <ItemGroup>
-    <ResourceCompile Include="icon.rc" />
-  </ItemGroup>
-  <ItemGroup>
     <Image Include="bin\data\images\EU_DE.jpg" />
     <Image Include="bin\data\images\I_HR26.jpg" />
     <Image Include="bin\data\images\EU_DE1.jpg" />
@@ -191,10 +171,13 @@
     <Image Include="bin\data\images\I_TN87.jpg" />
     <Image Include="bin\data\images\EU-DE4.jpg" />
     <Image Include="bin\data\images\EU-DE5.jpg" />
+    <Image Include="bin\data\images\I_MH01.jpg" />
+    <Image Include="bin\data\images\I_MH20.jpg" />
   </ItemGroup>
   <ItemGroup>
     <None Include="README.md" />
     <None Include="bin\tessdata\eng.traineddata" />
     <None Include="config.make" />
+    <None Include="bin\data\users.csv" />
   </ItemGroup>
 </Project>
